@@ -66,10 +66,10 @@ def load_hist_xrd(filepath: Path | str) -> pd.DataFrame:
     if not lines:
         raise ValueError("The file is empty.")
     
-    if len(lines) <= 3:
+    if len(lines) <= 4:
         raise ValueError("The file does not contain enough data.")
     
-    data_start_idx = 3
+    data_start_idx = 4
     
     # Extract histogram data
     data = []
