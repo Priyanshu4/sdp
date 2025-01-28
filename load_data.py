@@ -50,7 +50,7 @@ def load_avg_data(filepath: Path | str) -> pd.DataFrame:
 
     return df
 
-def load_hist_xrd(filepath: Path | str) -> pd.DataFrame:
+def load_xrd_hist(filepath: Path | str) -> pd.DataFrame:
     """
     Load .hist.xrd file into DataFrame
     
@@ -153,7 +153,7 @@ def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataF
                     xrd_data = None
                     if xrd_file.exists():
                         try:
-                            xrd_data = load_hist_xrd(xrd_file)
+                            xrd_data = load_xrd_hist(xrd_file)
                         except Exception as e:
                             print(f"Error loading {xrd_file}: {str(e)}")
 
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     print("")
 
     # Load a single xrd hist file
-    xrd_data = load_hist_xrd(path / "01_300-Kelvin" / "2500-Kelvin" / "0.1.hist.xrd")
+    xrd_data = load_xrd_hist(path / "01_300-Kelvin" / "2500-Kelvin" / "0.1.hist.xrd")
     print("XRD Data Example:")
     print(xrd_data.head())
     print("")
