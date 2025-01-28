@@ -198,20 +198,17 @@ if __name__ == "__main__":
     print(xrd_data.head())
     print("")
     
+    # Load all the data
     processed_data = load_processed_data(path, verbose=True)
     print(processed_data.head())
 
+    # Print out the rows that are missing avg_data or xrd_data
     filtered_rows = processed_data[(processed_data["avg_data"].isna()) | (processed_data["xrd_data"].isna())]
-
-    # Printing the formatted output
     if not filtered_rows.empty:
         print(filtered_rows[["temp", "melt_temp", "timestep", "bin_num"]].to_string(index=False))
     else:
         print("No rows found with missing avg_data or xrd_data.")
 
-    good_samples = processed_data[(processed_data["avg_data"].notna()) & (processed_data["xrd_data"].notna())]
-
-    # Count the number of unique (temp, melt_temp, timestep, bin_num) combinations where both avg_data and xrd_data are not None
+    # Count the number of samples (bins) with usable data
     good_samples = processed_data[(processed_data["avg_data"].notna()) & (processed_data["xrd_data"].notna())].shape[0]
-
     print(f"Number of good samples: {good_samples}")
