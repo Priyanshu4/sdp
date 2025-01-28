@@ -12,7 +12,7 @@ def plot_xrd_hist(xrd_hist: DataFrame, title = "") -> None:
     plt.figure()
     plt.plot(xrd_hist["Coord"], xrd_hist["Count"])
     plt.xlabel("2$\Theta$")
-    plt.ylabel("Cound")
+    plt.ylabel("Count")
 
     if title:
         plt.title(title)
