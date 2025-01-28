@@ -1,5 +1,6 @@
 import pandas as pd 
 from pathlib import Path
+import re
 
 def load_avg_data(filepath: Path | str) -> pd.DataFrame:
     """
@@ -59,21 +60,31 @@ def load_hist_xrd(filepath: Path | str) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame with XRD pattern data
     """
-    try:
-        # Read the XRD data
-        data = pd.read_csv(filepath, 
-                          delim_whitespace=True,
-                          comment='#',
-                          header=None)
-        
-        # Rename columns appropriately 
-        data.columns = ['2theta', 'intensity']
-        
-        return data
-        
-    except Exception as e:
-        print(f"Error loading {filepath}: {str(e)}")
-        return None
+    with open(filepath, 'r') as file:
+        lines = file.readlines()
+
+    if not lines:
+        raise ValueError("The file is empty.")
+    
+    if len(lines) <= 3:
+        raise ValueError("The file does not contain enough data.")
+    
+    data_start_idx = 3
+    
+    # Extract histogram data
+    data = []
+    for line in lines[data_start_idx:]:
+        if line.strip():  # Ignore empty lines
+            values = re.split(r'\s+', line.strip())
+            bin_index = int(values[0])
+            bin_coord = float(values[1])
+            count = float(values[2])
+            count_total = float(values[3])
+            data.append([bin_index, bin_coord, count, count_total])
+    
+    # Create DataFrame
+    df = pd.DataFrame(data, columns=["Bin", "Coord", "Count", "Count/Total"])
+    return df
     
 def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataFrame:
     """
@@ -162,13 +173,32 @@ def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataF
     processed_data["avg_data"] = processed_data["avg_data"].astype(object)
     processed_data["xrd_data"] = processed_data["xrd_data"].astype(object)
 
-    # Set an index for optimized lookups
-    processed_data.set_index(["temp", "melt_temp", "timestep", "bin_num"], inplace=True)
+    processed_data = processed_data.sort_values(by=["temp", "melt_temp", "timestep", "bin_num"])
 
     return processed_data   
 
 if __name__ == "__main__":
     path = Path("/gpfs/sharedfs1/MD-XRD-ML/02_Processed-Data")
-    processed_data = load_processed_data(path, verbose=True)
 
+    # Load a single avg data file
+    avg_data = load_avg_data(path / "01_300-Kelvin" / "2500-Kelvin" / "avg-data.0.txt")
+    print("Avg Data Example:")
+    print(avg_data.head())
+    print("")
+
+    # Load a single xrd hist file
+    xrd_data = load_hist_xrd(path / "01_300-Kelvin" / "2500-Kelvin" / "0.1.hist.xrd")
+    print("XRD Data Example:")
+    print(xrd_data.head())
+    print("")
+    
+    processed_data = load_processed_data(path, verbose=True)
     print(processed_data.head())
+
+    filtered_rows = processed_data[(processed_data["avg_data"].isna()) | (processed_data["xrd_data"].isna())]
+
+    # Printing the formatted output
+    if not filtered_rows.empty:
+        print(filtered_rows[["temp", "melt_temp", "timestep", "bin_num"]].to_string(index=False))
+    else:
+        print("No rows found with missing avg_data or xrd_data.")
