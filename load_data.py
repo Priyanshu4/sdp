@@ -173,6 +173,12 @@ def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataF
     processed_data["avg_data"] = processed_data["avg_data"].astype(object)
     processed_data["xrd_data"] = processed_data["xrd_data"].astype(object)
 
+    # Ensure other columns are treated as numeric
+    processed_data["temp"] = pd.to_numeric(processed_data["temp"])
+    processed_data["melt_temp"] = pd.to_numeric(processed_data["melt_temp"])
+    processed_data["timestep"] = pd.to_numeric(processed_data["timestep"])
+    processed_data["bin_num"] = pd.to_numeric(processed_data["bin_num"])
+
     processed_data = processed_data.sort_values(by=["temp", "melt_temp", "timestep", "bin_num"])
 
     return processed_data   
@@ -202,3 +208,10 @@ if __name__ == "__main__":
         print(filtered_rows[["temp", "melt_temp", "timestep", "bin_num"]].to_string(index=False))
     else:
         print("No rows found with missing avg_data or xrd_data.")
+
+    good_samples = processed_data[(processed_data["avg_data"].notna()) & (processed_data["xrd_data"].notna())]
+
+    # Count the number of unique (temp, melt_temp, timestep, bin_num) combinations where both avg_data and xrd_data are not None
+    good_samples = processed_data[(processed_data["avg_data"].notna()) & (processed_data["xrd_data"].notna())].shape[0]
+
+    print(f"Number of good samples: {good_samples}")
