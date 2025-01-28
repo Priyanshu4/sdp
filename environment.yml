@@ -100,4 +100,3 @@ dependencies:
   - xz=5.4.6=h5eee18b_1
   - zlib=1.2.13=h5eee18b_1
   - zstd=1.5.6=hc292b87_0
-prefix: /home/pra20003/miniconda3/envs/xrd_ml
