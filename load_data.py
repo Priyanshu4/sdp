@@ -1,5 +1,6 @@
 import pandas as pd 
 from pathlib import Path
+import numpy as np
 import re
 
 def load_avg_data(filepath: Path | str) -> pd.DataFrame:
@@ -98,12 +99,20 @@ def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataF
         pd.DataFrame: DataFrame containing the processed data
 
     The data is stored in a dataframe with columns:
-    - temp
-    - melt_temp
-    - timestep
-    - bin_num
-    - avg_data (DataFrame or None)
-    - xrd_data (DataFrame or None)
+        "temp": "int64",
+        "melt_temp": "int64",
+        "timestep": "object",
+        "bin_num": "int64",
+        "min Z": "float64",
+        "max Z": "float64",
+        "NAN bin": "int64",
+        "avg T": "float64",
+        "NAN other": "float64",
+        "NAN FCC": "float64",
+        "NAN HCP": "float64",
+        "NAN BCC": "float64",
+        "avg CSP": "float64",
+        "xrd_data": "object" (pd Dataframe or None)
     """
 
     if Path(directory_path).is_file():
@@ -111,9 +120,26 @@ def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataF
     elif not Path(directory_path).exists():
         raise ValueError("The specified directory does not exist.")
 
-    # Initialize an empty DataFrame
-    columns = ["temp", "melt_temp", "timestep", "bin_num", "avg_data", "xrd_data"]
-    processed_data = pd.DataFrame(columns=columns)
+    column_dtypes = {
+        "temp": "int64",
+        "melt_temp": "int64",
+        "timestep": "object",
+        "bin_num": "int64",
+        "min Z": "float64",
+        "max Z": "float64",
+        "NAN bin": "int64",
+        "avg T": "float64",
+        "NAN other": "float64",
+        "NAN FCC": "float64",
+        "NAN HCP": "float64",
+        "NAN BCC": "float64",
+        "avg CSP": "float64",
+        "xrd_data": "object"
+    }
+
+    # Initialize the DataFrame
+    processed_data = pd.DataFrame(columns=column_dtypes.keys())
+    processed_data = processed_data.astype(column_dtypes)
 
     if verbose:
         print("Loading data from:")
@@ -146,16 +172,18 @@ def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataF
                     except Exception as e:
                         print(f"Error loading {avg_file}: {str(e)}")
 
-                # Load corresponding XRD data
                 for bin_num in range(1, 6):
+
+                    # Load corresponding XRD data
                     xrd_file = melt_dir / f"{timestep}.{bin_num}.hist.xrd"
-                    
                     xrd_data = None
                     if xrd_file.exists():
                         try:
                             xrd_data = load_xrd_hist(xrd_file)
                         except Exception as e:
                             print(f"Error loading {xrd_file}: {str(e)}")
+                        
+                    
 
                     # Append the row to DataFrame
                     new_row = pd.DataFrame([{
@@ -163,21 +191,21 @@ def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataF
                         "melt_temp": melt_temp,
                         "timestep": timestep,
                         "bin_num": bin_num,
-                        "avg_data": avg_data,  # Store DataFrame as object
-                        "xrd_data": xrd_data   # Store DataFrame as object
+                        "min Z": avg_data["min Z"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                        "max Z": avg_data["max Z"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                        "NAN bin": avg_data["NAN bin"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                        "avg T": avg_data["avg T"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                        "NAN other": avg_data["NAN other"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                        "NAN FCC": avg_data["NAN FCC"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                        "NAN HCP": avg_data["NAN HCP"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                        "NAN BCC": avg_data["NAN BCC"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                        "avg CSP": avg_data["avg CSP"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                        "xrd_data": xrd_data
                     }])
-                    
+                    new_row = new_row.astype(column_dtypes)
+              
+
                     processed_data = pd.concat([processed_data, new_row], ignore_index=True)
-
-    # Ensure 'avg_data' and 'xrd_data' are treated as objects
-    processed_data["avg_data"] = processed_data["avg_data"].astype(object)
-    processed_data["xrd_data"] = processed_data["xrd_data"].astype(object)
-
-    # Ensure other columns are treated as numeric
-    processed_data["temp"] = pd.to_numeric(processed_data["temp"])
-    processed_data["melt_temp"] = pd.to_numeric(processed_data["melt_temp"])
-    processed_data["timestep"] = pd.to_numeric(processed_data["timestep"])
-    processed_data["bin_num"] = pd.to_numeric(processed_data["bin_num"])
 
     processed_data = processed_data.sort_values(by=["temp", "melt_temp", "timestep", "bin_num"])
 
@@ -203,12 +231,12 @@ if __name__ == "__main__":
     print(processed_data.head())
 
     # Print out the rows that are missing avg_data or xrd_data
-    filtered_rows = processed_data[(processed_data["avg_data"].isna()) | (processed_data["xrd_data"].isna())]
+    filtered_rows = processed_data[(processed_data["avg T"].isna()) | (processed_data["xrd_data"].isna())]
     if not filtered_rows.empty:
         print(filtered_rows[["temp", "melt_temp", "timestep", "bin_num"]].to_string(index=False))
     else:
         print("No rows found with missing avg_data or xrd_data.")
 
     # Count the number of samples (bins) with usable data
-    good_samples = processed_data[(processed_data["avg_data"].notna()) & (processed_data["xrd_data"].notna())].shape[0]
+    good_samples = processed_data[(processed_data["avg T"].notna()) & (processed_data["xrd_data"].notna())].shape[0]
     print(f"Number of good samples: {good_samples}")
