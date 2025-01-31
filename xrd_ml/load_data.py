@@ -3,6 +3,9 @@ from pathlib import Path
 import numpy as np
 import re
 
+PROCESSED_DATA_PATH = Path("/gpfs/sharedfs1/MD-XRD-ML/02_Processed-Data")
+NUM_BINS_PER_TIMESTEP = 5
+
 def load_avg_data(filepath: Path | str) -> pd.DataFrame:
     """
     Parse a file containing the specified data format into a pandas DataFrame.
@@ -87,7 +90,9 @@ def load_xrd_hist(filepath: Path | str) -> pd.DataFrame:
     df = pd.DataFrame(data, columns=["Bin", "Coord", "Count", "Count/Total"])
     return df
     
-def load_processed_data(directory_path: Path | str, suppress_load_errors = False, verbose = False) -> pd.DataFrame:
+def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
+                        suppress_load_errors = False, 
+                        verbose = False) -> pd.DataFrame:
     """
     Load all data from the processed data directory.
     
@@ -115,10 +120,11 @@ def load_processed_data(directory_path: Path | str, suppress_load_errors = False
         "avg CSP": "float64",
         "xrd_data": "object" (pd Dataframe or None)
     """
+    directory_path = Path(directory_path)
 
-    if Path(directory_path).is_file():
+    if directory_path.is_file():
         raise ValueError("Please provide a directory path, not a file path.")
-    elif not Path(directory_path).exists():
+    elif not directory_path.exists():
         raise ValueError("The specified directory does not exist.")
 
     column_dtypes = {
@@ -174,7 +180,7 @@ def load_processed_data(directory_path: Path | str, suppress_load_errors = False
                         if not suppress_load_errors:
                             print(f"Error loading {avg_file}: {str(e)}")
 
-                for bin_num in range(1, 6):
+                for bin_num in range(1, NUM_BINS_PER_TIMESTEP + 1):
 
                     # Load corresponding XRD data
                     xrd_file = melt_dir / f"{timestep}.{bin_num}.hist.xrd"
@@ -214,6 +220,33 @@ def load_processed_data(directory_path: Path | str, suppress_load_errors = False
 
     return processed_data   
 
+def get_usable_bins(processed_data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filter out rows with missing avg_data or xrd_data.
+    """
+    return processed_data[(processed_data["avg T"].notna()) & (processed_data["xrd_data"].notna())]
+
+def get_missing_bins(processed_data: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return only the rows with missing avg_data or xrd_data.
+    """
+    return processed_data[(processed_data["avg T"].isna()) | (processed_data["xrd_data"].isna())]
+
+def get_entirely_missing_timesteps(processed_data: pd.DataFrame, temp: int, melt_temp: int) -> list[int]:
+    """
+    Return the timesteps that have missing histograms for all bins.
+    """
+    missing_bins = get_missing_bins(processed_data)
+
+    # get rows with specified temp and melt_temp
+    missing_bins = missing_bins[(missing_bins["temp"] == temp) & (missing_bins["melt_temp"] == melt_temp)]
+
+    # get timesteps with missing histograms for all bins
+    # there should be num_bins_per_timestep rows for each timestep
+    missing_timesteps = missing_bins.groupby("timestep").filter(lambda x: x.shape[0] == NUM_BINS_PER_TIMESTEP)["timestep"].unique()
+
+    return missing_timesteps
+
 if __name__ == "__main__":
     path = Path("/gpfs/sharedfs1/MD-XRD-ML/02_Processed-Data")
 
@@ -234,12 +267,12 @@ if __name__ == "__main__":
     print(processed_data.head())
 
     # Print out the rows that are missing avg_data or xrd_data
-    filtered_rows = processed_data[(processed_data["avg T"].isna()) | (processed_data["xrd_data"].isna())]
-    if not filtered_rows.empty:
-        print(filtered_rows[["temp", "melt_temp", "timestep", "bin_num"]].to_string(index=False))
+    missing_bins = get_missing_bins(processed_data)
+    if not missing_bins.empty:
+        print(missing_bins[["temp", "melt_temp", "timestep", "bin_num"]].to_string(index=False))
     else:
         print("No rows found with missing avg_data or xrd_data.")
 
     # Count the number of samples (bins) with usable data
-    good_samples = processed_data[(processed_data["avg T"].notna()) & (processed_data["xrd_data"].notna())].shape[0]
-    print(f"Number of good samples: {good_samples}")
+    usable_bins = get_usable_bins(processed_data)
+    print(f"Number of usable bins: {usable_bins.shape[0]}")
