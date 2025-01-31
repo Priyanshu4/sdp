@@ -92,7 +92,10 @@ def load_xrd_hist(filepath: Path | str) -> pd.DataFrame:
     
 def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
                         suppress_load_errors = False, 
-                        verbose = False) -> pd.DataFrame:
+                        verbose = False,
+                        temps: list[int] | str = "all",
+                        melt_temps: list[int] | str = "all"
+                        ) -> pd.DataFrame:
     """
     Load all data from the processed data directory.
     
@@ -155,17 +158,22 @@ def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
     # Iterate through temperature directories
     for temp_dir in directory_path.glob("*_*-Kelvin"):
 
+        temp = int(temp_dir.name.split('_')[1].split('-')[0])
+        if temps != "all" and temp not in temps:
+            continue
+
         if verbose:
             print(f"\t{temp_dir.name}")
 
-        temp = int(temp_dir.name.split('_')[1].split('-')[0])
-
         for melt_dir in temp_dir.glob("*-Kelvin"):
+
+
+            melt_temp = int(melt_dir.name.split('-')[0])
+            if melt_temps != "all" and melt_temp not in melt_temps:
+                continue
 
             if verbose:
                 print(f"\t\t{melt_dir.name}")
-
-            melt_temp = int(melt_dir.name.split('-')[0])
 
             # Process each timestep
             for avg_file in melt_dir.glob("avg-data.*.txt"):
