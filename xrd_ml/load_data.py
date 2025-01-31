@@ -87,12 +87,13 @@ def load_xrd_hist(filepath: Path | str) -> pd.DataFrame:
     df = pd.DataFrame(data, columns=["Bin", "Coord", "Count", "Count/Total"])
     return df
     
-def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataFrame:
+def load_processed_data(directory_path: Path | str, suppress_load_errors = False, verbose = False) -> pd.DataFrame:
     """
     Load all data from the processed data directory.
     
     Parameters:
         filepath (str): Path to the processed data file
+        suppress_load_errors (bool): Whether to suppress errors during loading
         verbose (bool): Whether to print debug information
         
     Returns:
@@ -123,7 +124,7 @@ def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataF
     column_dtypes = {
         "temp": "int64",
         "melt_temp": "int64",
-        "timestep": "object",
+        "timestep": "int64",
         "bin_num": "int64",
         "min Z": "float64",
         "max Z": "float64",
@@ -170,7 +171,8 @@ def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataF
                     try:
                         avg_data = load_avg_data(avg_file)
                     except Exception as e:
-                        print(f"Error loading {avg_file}: {str(e)}")
+                        if not suppress_load_errors:
+                            print(f"Error loading {avg_file}: {str(e)}")
 
                 for bin_num in range(1, 6):
 
@@ -181,7 +183,8 @@ def load_processed_data(directory_path: Path | str, verbose = False) -> pd.DataF
                         try:
                             xrd_data = load_xrd_hist(xrd_file)
                         except Exception as e:
-                            print(f"Error loading {xrd_file}: {str(e)}")
+                            if not suppress_load_errors:
+                                print(f"Error loading {xrd_file}: {str(e)}")
                         
                     
 
