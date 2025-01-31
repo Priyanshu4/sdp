@@ -253,7 +253,7 @@ def get_entirely_missing_timesteps(processed_data: pd.DataFrame, temp: int, melt
     # there should be num_bins_per_timestep rows for each timestep
     missing_timesteps = missing_bins.groupby("timestep").filter(lambda x: x.shape[0] == NUM_BINS_PER_TIMESTEP)["timestep"].unique()
 
-    return missing_timesteps
+    return missing_timesteps.tolist()
 
 if __name__ == "__main__":
     path = Path("/gpfs/sharedfs1/MD-XRD-ML/02_Processed-Data")
