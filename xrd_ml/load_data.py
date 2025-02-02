@@ -284,3 +284,4 @@ if __name__ == "__main__":
     # Count the number of samples (bins) with usable data
     usable_bins = get_usable_bins(processed_data)
     print(f"Number of usable bins: {usable_bins.shape[0]}")
+    print(f"Number of missing bins: {missing_bins.shape[0]}")
