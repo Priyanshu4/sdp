@@ -3,6 +3,8 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 import glob
 import os
+from sklearn.model_selection import train_test_split
+
 
 class XRDNet:
     def __init__(self):
@@ -167,3 +169,23 @@ class XRDNet:
             'r2': r2,
             'predictions': predictions
         }
+
+
+# Initialize and train model
+xrd_net = XRDNet()
+base_path = "/gpfs/sharedfs1/MD-XRD-ML/02_Processed-Data"  #this needs to be modified to select the data
+X, y = xrd_net.load_dataset(base_path)
+
+# Split data into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42) #0.3 test_size for a 70/30 split
+
+# Train model
+history = xrd_net.train(X_train, y_train)
+
+# Evaluate
+results = xrd_net.evaluate_predictions(X_test, y_test)
+
+# Printing out results
+print(f"Mean Squared Error: {results['mse']}")
+print(f"Mean Absolute Error: {results['mae']}")
+print(f"R² Score: {results['r2']}")
