@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 import numpy as np
 import re
-from typing import Optional
+from typing import Optional, List, Tuple
 
 PROCESSED_DATA_PATH = Path("/gpfs/sharedfs1/MD-XRD-ML/02_Processed-Data")
 NUM_BINS_PER_TIMESTEP = 5
@@ -93,7 +93,7 @@ def load_avg_data(filepath: Path | str) -> pd.DataFrame:
 
     return df
 
-def get_avg_data_files(directory_path: Path | str) -> list[Path]:
+def get_avg_data_files(directory_path: Path | str) -> List[Path]:
 
     avg_data_files_v2 = list(directory_path.glob("Avg-Data-Step.*.txt"))
     avg_data_files_v1 = list(directory_path.glob("avg-data.*.txt"))
@@ -158,6 +158,7 @@ def load_xrd_hist(filepath: Path | str) -> pd.DataFrame:
     
     # Create DataFrame
     df = pd.DataFrame(data, columns=["Bin", "Coord", "Count", "Count/Total"])
+    df.astype({"Bin": "int64", "Coord": "float64", "Count": "float64", "Count/Total": "float64"})
     return df
 
 def load_processed_data_for_temp_directory(temp: int, 
@@ -257,10 +258,39 @@ def load_processed_data_for_temp_directory(temp: int,
             processed_data = pd.concat([processed_data, new_row], ignore_index=True)
 
     processed_data = processed_data.sort_values(by=["temp", "melt_temp", "timestep", "bin_num"])
+    processed_data.reset_index(drop=True, inplace=True)
 
     return processed_data
 
-    
+def load_processed_data_for_list_of_temps(
+        temp_list: List[Tuple[int, int]],
+        suppress_load_errors = False) -> pd.DataFrame:
+    """
+    Load all data from the directories corresponding to the specified temperature and melting temperature.
+
+    Parameters:
+        temp_list (List[Tuple[int, int]]): List of tuples of temperature and melting temperature
+
+    Returns:
+        pd.DataFrame: DataFrame containing the processed data
+
+    Refer to PROCESSED_DATA_COLUMN_DTYPES for the description of the DataFrame. 
+    """
+    processed_data = pd.DataFrame(columns=PROCESSED_DATA_COLUMN_DTYPES.keys())
+    processed_data = processed_data.astype(PROCESSED_DATA_COLUMN_DTYPES)
+  
+    for temp, melt_temp in temp_list:
+        directory_data = load_processed_data_for_temp_directory(
+            temp, 
+            melt_temp, 
+            suppress_load_errors = suppress_load_errors)
+        processed_data = pd.concat([processed_data, directory_data], ignore_index=True)
+
+    processed_data = processed_data.sort_values(by=["temp", "melt_temp", "timestep", "bin_num"])
+    processed_data.reset_index(drop=True, inplace=True)
+
+    return processed_data   
+
 def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
                         suppress_load_errors = False, 
                         verbose = False) -> pd.DataFrame:
@@ -329,6 +359,8 @@ def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
             processed_data = pd.concat([processed_data, directory_data], ignore_index=True)
 
     processed_data = processed_data.sort_values(by=["temp", "melt_temp", "timestep", "bin_num"])
+    processed_data.reset_index(drop=True, inplace=True)
+    
     return processed_data   
 
 def get_usable_bins(processed_data: pd.DataFrame) -> pd.DataFrame:
