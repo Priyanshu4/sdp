@@ -3,7 +3,13 @@ import subprocess
 import os
 from pathlib import Path
 from pandas import DataFrame
-from load_data import PROCESSED_DATA_PATH, get_entirely_missing_timesteps, load_processed_data
+from load_data import (
+    PROCESSED_DATA_PATH,
+    TEMP_TO_DIRECTORY,
+    MELTING_TEMP_TO_DIRECTORY,
+    get_entirely_missing_timesteps, 
+    load_processed_data_for_temp_directory,
+)
 
 
 def run_job_submission_individual_files(directory: Path | str, file_start: int, file_stop: int):
@@ -51,26 +57,7 @@ def submit_xrd_job(temp: int, melting_temp: int, timestep: int):
         melting_temp (int): Melting temperature
         timestep (int): Timestep
     """
-
-    temp_to_directory = {
-        300: "01_300-Kelvin",
-        400: "02_400-Kelvin",
-        500: "03_500-Kelvin",
-        600: "04_600-Kelvin",
-        700: "05_700-Kelvin",
-        800: "06_800-Kelvin",
-        900: "07_900-Kelvin",
-        1000: "08_1000-Kelvin",
-        1100: "09_1100-Kelvin",
-        1200: "10_1200-Kelvin",
-    }
-
-    melting_temp_to_directory = {
-        2500: "2500-Kelvin",
-        3500: "3500-Kelvin",
-    }
-
-    directory = PROCESSED_DATA_PATH / temp_to_directory[temp] / melting_temp_to_directory[melting_temp]
+    directory = PROCESSED_DATA_PATH / TEMP_TO_DIRECTORY[temp] / MELTING_TEMP_TO_DIRECTORY[melting_temp]
 
     if not directory.exists():
         raise FileNotFoundError(f"Directory not found: {directory}")
@@ -121,7 +108,7 @@ if __name__ == "__main__":
         melting_temp = int(input("Enter melting temperature: "))
 
         print(f"Loading processed data for temp {temp} and melting temp {melting_temp}...")
-        processed_data = load_processed_data(PROCESSED_DATA_PATH, suppress_load_errors=True, verbose=False, temps=[temp], melt_temps=[melting_temp])
+        processed_data = load_processed_data_for_temp_directory(temp, melting_temp, suppress_load_errors=True)
 
         missing_timesteps = get_entirely_missing_timesteps(processed_data, temp, melting_temp)
 

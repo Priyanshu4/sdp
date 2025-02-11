@@ -2,9 +2,48 @@ import pandas as pd
 from pathlib import Path
 import numpy as np
 import re
+from typing import Optional
 
 PROCESSED_DATA_PATH = Path("/gpfs/sharedfs1/MD-XRD-ML/02_Processed-Data")
 NUM_BINS_PER_TIMESTEP = 5
+
+TEMP_TO_DIRECTORY = {
+    300: "01_300-Kelvin",
+    400: "02_400-Kelvin",
+    500: "03_500-Kelvin",
+    600: "04_600-Kelvin",
+    700: "05_700-Kelvin",
+    800: "06_800-Kelvin",
+    900: "07_900-Kelvin",
+    1000: "08_1000-Kelvin",
+    1100: "09_1100-Kelvin",
+    1200: "10_1200-Kelvin",
+}
+
+MELTING_TEMP_TO_DIRECTORY = {
+    2500: "2500-Kelvin",
+    3500: "3500-Kelvin",
+}
+
+PROCESSED_DATA_COLUMN_DTYPES = {
+    "temp": "int64",
+    "melt_temp": "int64",
+    "timestep": "int64",
+    "bin_num": "int64",
+    "min Z": "float64",
+    "max Z": "float64",
+    "NAN bin": "int64",
+    "avg T": "float64",
+    "NAN other": "float64",
+    "NAN FCC": "float64",
+    "NAN HCP": "float64",
+    "NAN BCC": "float64",
+    "avg CSP": "float64",
+    "solidFrac": "float64",
+    "liquidFrac": "float64",
+    "xrd_data": "object"
+}
+
 
 def load_avg_data(filepath: Path | str) -> pd.DataFrame:
     """
@@ -120,18 +159,116 @@ def load_xrd_hist(filepath: Path | str) -> pd.DataFrame:
     # Create DataFrame
     df = pd.DataFrame(data, columns=["Bin", "Coord", "Count", "Count/Total"])
     return df
+
+def load_processed_data_for_temp_directory(temp: int, 
+                                           melt_temp: int, 
+                                           directory: Optional[Path | str] = None,
+                                           suppress_load_errors = False) -> pd.DataFrame:
+    """
+    Load all data from the directory corresponding to the specified temperature and melting temperature.
+    
+    Parameters:
+        temp (int): Temperature
+        melt_temp (int): Melting temperature
+        directory (str): Path to the processed data directory
+        suppress_load_errors (bool): Whether to suppress errors during loading
+        
+    Returns:
+        pd.DataFrame: DataFrame containing the processed data
+
+    The data is stored in a dataframe with columns:
+        "temp": "int64",
+        "melt_temp": "int64",
+        "timestep": "object",
+        "bin_num": "int64",
+        "min Z": "float64",
+        "max Z": "float64",
+        "NAN bin": "int64",
+        "avg T": "float64",
+        "NAN other": "float64",
+        "NAN FCC": "float64",
+        "NAN HCP": "float64",
+        "NAN BCC": "float64",
+        "avg CSP": "float64",
+        "solidFrac": "float64",
+        "liquidFrac": "float64",
+        "xrd_data": "object" (pd Dataframe or None)
+    """
+
+    if directory is None:
+        temp_dir = PROCESSED_DATA_PATH / TEMP_TO_DIRECTORY[temp]
+        directory = temp_dir / MELTING_TEMP_TO_DIRECTORY[melt_temp]
+
+    directory = Path(directory)
+    if directory.is_file():
+        raise ValueError("Please provide a directory path, not a file path.")
+    elif not directory.exists():
+        raise ValueError("The specified directory does not exist.")
+
+    # Initialize the DataFrame
+    processed_data = pd.DataFrame(columns=PROCESSED_DATA_COLUMN_DTYPES.keys())
+    processed_data = processed_data.astype(PROCESSED_DATA_COLUMN_DTYPES)
+
+    # Process each timestep
+    for avg_file in get_avg_data_files(directory):
+        timestep = avg_file.stem.split('.')[-1]
+
+        # Load avg data
+        avg_data = None
+        if avg_file.exists():
+            try:
+                avg_data = load_avg_data(avg_file)
+            except Exception as e:
+                if not suppress_load_errors:
+                    print(f"Error loading {avg_file}: {str(e)}")
+
+        for bin_num in range(1, NUM_BINS_PER_TIMESTEP + 1):
+
+            # Load corresponding XRD data
+            xrd_file = directory / f"{timestep}.{bin_num}.hist.xrd"
+            xrd_data = None
+            if xrd_file.exists():
+                try:
+                    xrd_data = load_xrd_hist(xrd_file)
+                except Exception as e:
+                    if not suppress_load_errors:
+                        print(f"Error loading {xrd_file}: {str(e)}")
+                
+            # Append the row to DataFrame
+            new_row = pd.DataFrame([{
+                "temp": temp,
+                "melt_temp": melt_temp,
+                "timestep": timestep,
+                "bin_num": bin_num,
+                "min Z": avg_data["min Z"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                "max Z": avg_data["max Z"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                "NAN bin": avg_data["NAN bin"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                "avg T": avg_data["avg T"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                "NAN other": avg_data["NAN other"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                "NAN FCC": avg_data["NAN FCC"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                "NAN HCP": avg_data["NAN HCP"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                "NAN BCC": avg_data["NAN BCC"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                "avg CSP": avg_data["avg CSP"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                "solidFrac": avg_data["solidFrac"].iloc[bin_num - 1] if avg_data is not None and "solidFrac" in avg_data else np.nan,
+                "liquidFrac": avg_data["liquidFrac"].iloc[bin_num - 1] if avg_data is not None and "liquidFrac" in avg_data else np.nan,
+                "xrd_data": xrd_data
+            }])
+            new_row = new_row.astype(PROCESSED_DATA_COLUMN_DTYPES)
+            processed_data = pd.concat([processed_data, new_row], ignore_index=True)
+
+    processed_data = processed_data.sort_values(by=["temp", "melt_temp", "timestep", "bin_num"])
+
+    return processed_data
+
     
 def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
                         suppress_load_errors = False, 
-                        verbose = False,
-                        temps: list[int] | str = "all",
-                        melt_temps: list[int] | str = "all"
-                        ) -> pd.DataFrame:
+                        verbose = False) -> pd.DataFrame:
     """
     Load all data from the processed data directory.
     
     Parameters:
-        filepath (str): Path to the processed data file
+        directory_path (str): Path to the processed data directory.
         suppress_load_errors (bool): Whether to suppress errors during loading
         verbose (bool): Whether to print debug information
         
@@ -163,28 +300,10 @@ def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
     elif not directory_path.exists():
         raise ValueError("The specified directory does not exist.")
 
-    column_dtypes = {
-        "temp": "int64",
-        "melt_temp": "int64",
-        "timestep": "int64",
-        "bin_num": "int64",
-        "min Z": "float64",
-        "max Z": "float64",
-        "NAN bin": "int64",
-        "avg T": "float64",
-        "NAN other": "float64",
-        "NAN FCC": "float64",
-        "NAN HCP": "float64",
-        "NAN BCC": "float64",
-        "avg CSP": "float64",
-        "solidFrac": "float64",
-        "liquidFrac": "float64",
-        "xrd_data": "object"
-    }
 
     # Initialize the DataFrame
-    processed_data = pd.DataFrame(columns=column_dtypes.keys())
-    processed_data = processed_data.astype(column_dtypes)
+    processed_data = pd.DataFrame(columns=PROCESSED_DATA_COLUMN_DTYPES.keys())
+    processed_data = processed_data.astype(PROCESSED_DATA_COLUMN_DTYPES)
 
     if verbose:
         print("Loading data from:")
@@ -194,75 +313,22 @@ def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
     for temp_dir in directory_path.glob("*_*-Kelvin"):
 
         temp = int(temp_dir.name.split('_')[1].split('-')[0])
-        if temps != "all" and temp not in temps:
-            continue
-
         if verbose:
             print(f"\t{temp_dir.name}")
 
         for melt_dir in temp_dir.glob("*-Kelvin"):
-
-
             melt_temp = int(melt_dir.name.split('-')[0])
-            if melt_temps != "all" and melt_temp not in melt_temps:
-                continue
+        
 
             if verbose:
                 print(f"\t\t{melt_dir.name}")
 
-            # Process each timestep
-            for avg_file in get_avg_data_files(melt_dir):
-                timestep = avg_file.stem.split('.')[-1]
+            directory_data = load_processed_data_for_temp_directory(
+                temp, melt_temp, melt_dir, suppress_load_errors)
 
-                # Load avg data
-                avg_data = None
-                if avg_file.exists():
-                    try:
-                        avg_data = load_avg_data(avg_file)
-                    except Exception as e:
-                        if not suppress_load_errors:
-                            print(f"Error loading {avg_file}: {str(e)}")
-
-                for bin_num in range(1, NUM_BINS_PER_TIMESTEP + 1):
-
-                    # Load corresponding XRD data
-                    xrd_file = melt_dir / f"{timestep}.{bin_num}.hist.xrd"
-                    xrd_data = None
-                    if xrd_file.exists():
-                        try:
-                            xrd_data = load_xrd_hist(xrd_file)
-                        except Exception as e:
-                            if not suppress_load_errors:
-                                print(f"Error loading {xrd_file}: {str(e)}")
-                        
-                    
-
-                    # Append the row to DataFrame
-                    new_row = pd.DataFrame([{
-                        "temp": temp,
-                        "melt_temp": melt_temp,
-                        "timestep": timestep,
-                        "bin_num": bin_num,
-                        "min Z": avg_data["min Z"].iloc[bin_num - 1] if avg_data is not None else np.nan,
-                        "max Z": avg_data["max Z"].iloc[bin_num - 1] if avg_data is not None else np.nan,
-                        "NAN bin": avg_data["NAN bin"].iloc[bin_num - 1] if avg_data is not None else np.nan,
-                        "avg T": avg_data["avg T"].iloc[bin_num - 1] if avg_data is not None else np.nan,
-                        "NAN other": avg_data["NAN other"].iloc[bin_num - 1] if avg_data is not None else np.nan,
-                        "NAN FCC": avg_data["NAN FCC"].iloc[bin_num - 1] if avg_data is not None else np.nan,
-                        "NAN HCP": avg_data["NAN HCP"].iloc[bin_num - 1] if avg_data is not None else np.nan,
-                        "NAN BCC": avg_data["NAN BCC"].iloc[bin_num - 1] if avg_data is not None else np.nan,
-                        "avg CSP": avg_data["avg CSP"].iloc[bin_num - 1] if avg_data is not None else np.nan,
-                        "solidFrac": avg_data["solidFrac"].iloc[bin_num - 1] if avg_data is not None and "solidFrac" in avg_data else np.nan,
-                        "liquidFrac": avg_data["liquidFrac"].iloc[bin_num - 1] if avg_data is not None and "liquidFrac" in avg_data else np.nan,
-                        "xrd_data": xrd_data
-                    }])
-                    new_row = new_row.astype(column_dtypes)
-              
-
-                    processed_data = pd.concat([processed_data, new_row], ignore_index=True)
+            processed_data = pd.concat([processed_data, directory_data], ignore_index=True)
 
     processed_data = processed_data.sort_values(by=["temp", "melt_temp", "timestep", "bin_num"])
-
     return processed_data   
 
 def get_usable_bins(processed_data: pd.DataFrame) -> pd.DataFrame:
