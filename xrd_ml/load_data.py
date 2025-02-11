@@ -54,6 +54,37 @@ def load_avg_data(filepath: Path | str) -> pd.DataFrame:
 
     return df
 
+def get_avg_data_files(directory_path: Path | str) -> list[Path]:
+
+    avg_data_files_v2 = list(directory_path.glob("Avg-Data-Step.*.txt"))
+    avg_data_files_v1 = list(directory_path.glob("avg-data.*.txt"))
+
+    # Regular expressions to extract the timestep from the filenames
+    # These assume the files are named like "Avg-Data-Step.123.txt" and "avg-data.123.txt"
+    pattern_new = re.compile(r"Avg-Data-Step\.(\d+)\.txt")
+    pattern_old = re.compile(r"avg-data\.(\d+)\.txt")
+
+    # Dictionary to hold files keyed by timestep
+    files_dict = {}
+
+    # Process the new files first
+    for f in avg_data_files_v2:
+        match = pattern_new.match(f.name)
+        if match:
+            timestep = match.group(1)
+            files_dict[timestep] = f
+
+    # Process the old files and add only if the timestep is missing
+    for f in avg_data_files_v1:
+        match = pattern_old.match(f.name)
+        if match:
+            timestep = match.group(1)
+            if timestep not in files_dict:
+                files_dict[timestep] = f
+
+    result_files = [files_dict[ts] for ts in sorted(files_dict, key=int)]
+    return result_files
+
 def load_xrd_hist(filepath: Path | str) -> pd.DataFrame:
     """
     Load .hist.xrd file into DataFrame
@@ -121,6 +152,8 @@ def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
         "NAN HCP": "float64",
         "NAN BCC": "float64",
         "avg CSP": "float64",
+        "solidFrac": "float64",
+        "liquidFrac": "float64",
         "xrd_data": "object" (pd Dataframe or None)
     """
     directory_path = Path(directory_path)
@@ -144,6 +177,8 @@ def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
         "NAN HCP": "float64",
         "NAN BCC": "float64",
         "avg CSP": "float64",
+        "solidFrac": "float64",
+        "liquidFrac": "float64",
         "xrd_data": "object"
     }
 
@@ -176,7 +211,7 @@ def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
                 print(f"\t\t{melt_dir.name}")
 
             # Process each timestep
-            for avg_file in melt_dir.glob("avg-data.*.txt"):
+            for avg_file in get_avg_data_files(melt_dir):
                 timestep = avg_file.stem.split('.')[-1]
 
                 # Load avg data
@@ -217,6 +252,8 @@ def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
                         "NAN HCP": avg_data["NAN HCP"].iloc[bin_num - 1] if avg_data is not None else np.nan,
                         "NAN BCC": avg_data["NAN BCC"].iloc[bin_num - 1] if avg_data is not None else np.nan,
                         "avg CSP": avg_data["avg CSP"].iloc[bin_num - 1] if avg_data is not None else np.nan,
+                        "solidFrac": avg_data["solidFrac"].iloc[bin_num - 1] if avg_data is not None and "solidFrac" in avg_data else np.nan,
+                        "liquidFrac": avg_data["liquidFrac"].iloc[bin_num - 1] if avg_data is not None and "liquidFrac" in avg_data else np.nan,
                         "xrd_data": xrd_data
                     }])
                     new_row = new_row.astype(column_dtypes)
@@ -277,7 +314,7 @@ if __name__ == "__main__":
     # Print out the rows that are missing avg_data or xrd_data
     missing_bins = get_missing_bins(processed_data)
     if not missing_bins.empty:
-        print(missing_bins[["temp", "melt_temp", "timestep", "bin_num"]].to_string(index=False))
+        print(missing_bins[["temp", "melt_temp", "timestep", "bin_num", "solidFrac", "liquidFrac"]].to_string(index=False))
     else:
         print("No rows found with missing avg_data or xrd_data.")
 
