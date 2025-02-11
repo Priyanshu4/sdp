@@ -62,14 +62,16 @@ def load_validation_data(suppress_load_errors = False) -> pd.DataFrame:
         VALIDATION_DATA, 
         suppress_load_errors = suppress_load_errors)
 
-def get_x_y_as_np_array(data: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
+def get_x_y_as_np_array(data: pd.DataFrame,
+                        include_missing_Y_data = False) -> Tuple[np.ndarray, np.ndarray]:
     """
     Get X (hist data) and Y (solid fraction) as numpy arrays.
     If X data is missing for a row, it will be automatically skipped.
-    However, if only Y data is missing, the solid fraction will be set to NaN
+    If Y data is missing for a row, it will be skipped only if include_missing_Y_data is False.
 
     Parameters:
         data (DataFrame): DataFrame containing the data (output of load_train_data or load_validation_data)
+        include_missing_Y_data (bool): Whether to include rows with missing (NaN) solidFrac data
 
     Returns:
         Tuple[np.ndarray, np.ndarray]: X and Y data
@@ -96,6 +98,10 @@ def get_x_y_as_np_array(data: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
         # get the solid fraction and convert it to np.float32
         solid_fraction = row["solidFrac"]
+
+        if np.isnan(solid_fraction) and not include_missing_Y_data:
+            # Skip the row if solid fraction is NaN
+            continue
 
         X.append(relative_counts)
         Y.append(solid_fraction)
