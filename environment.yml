@@ -24,6 +24,7 @@ dependencies:
   - gstreamer=1.14.1=h5eee18b_1
   - icu=73.1=h6a678d5_0
   - intel-openmp=2023.1.0=hdb19cb5_46306
+  - joblib=1.4.2=py313h06a4308_0
   - jpeg=9e=h5eee18b_3
   - kiwisolver=1.4.8=py313h6a678d5_0
   - krb5=1.20.1=h143b758_1
@@ -40,6 +41,8 @@ dependencies:
   - libev=4.33=h7f8727e_1
   - libffi=3.4.4=h6a678d5_1
   - libgcc-ng=11.2.0=h1234567_1
+  - libgfortran-ng=11.2.0=h00389a5_1
+  - libgfortran5=11.2.0=h1234567_1
   - libglib=2.78.4=hdc74915_0
   - libgomp=11.2.0=h1234567_1
   - libiconv=1.16=h5eee18b_3
@@ -88,11 +91,14 @@ dependencies:
   - pytz=2024.1=py313h06a4308_0
   - qt-main=5.15.2=hb6262e9_11
   - readline=8.2=h5eee18b_0
+  - scikit-learn=1.6.1=py313h6a678d5_0
+  - scipy=1.15.1=py313hf4aebb8_0
   - setuptools=72.1.0=py313h06a4308_0
   - sip=6.7.12=py313h6a678d5_1
   - six=1.16.0=pyhd3eb1b0_1
   - sqlite=3.45.3=h5eee18b_0
   - tbb=2021.8.0=hdb19cb5_0
+  - threadpoolctl=3.5.0=py313h7040dfc_0
   - tk=8.6.14=h39e8969_0
   - tornado=6.4.2=py313h5eee18b_0
   - tzdata=2025a=h04d1e81_0
