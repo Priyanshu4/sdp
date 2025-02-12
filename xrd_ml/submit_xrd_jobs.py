@@ -159,6 +159,20 @@ if __name__ == "__main__":
         for timestep, bins in missing.items():
             print(f"Timestep {timestep}: {bins}")
 
+        print()
+        if input("Would you like to submit jobs for any of these timesteps? (y/n) ") != "y":
+            print("Exiting.")
+            exit()
+
+        print("For any timesteps selected, all bins have to be rerun (even if some bins are already present).")
+        
+        for timestep, bins in missing.items():
+
+            if input(f"Submit for timestep {timestep} with missing bins {bins}? (y/n) ") == "y":
+                submit_xrd_job(temp, melting_temp, timestep)
+                print(f"Job submitted for timestep {timestep}.")
+            else:
+                print(f"Job not submitted for timestep {timestep}.")
     else:
         print("Invalid option. Exiting.")
 
