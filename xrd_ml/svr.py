@@ -5,6 +5,8 @@ from train_test_split import (
     load_train_data, 
     load_validation_data,
     get_x_y_as_np_array)
+from plotting import plot_solid_fraction_distribution
+import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
 
@@ -45,3 +47,13 @@ if __name__ == "__main__":
     print(f"Root Mean Squared Error (RMSE): {rmse}")
     print(f"R^2 Score (r2_score): {r2}")
 
+    # plot solid fraction distribution for train and val
+    plt.figure()
+    plot_solid_fraction_distribution(train, bins=20)
+    plt.title("Train Data Solid Fraction Distribution")
+    plt.savefig("train_solid_fraction_distribution.png")
+
+    plot_solid_fraction_distribution(validation, bins=20)
+    plt.title("Validation Data Solid Fraction Distribution")
+    plt.savefig("validation_solid_fraction_distribution.png")
+    plt.show()

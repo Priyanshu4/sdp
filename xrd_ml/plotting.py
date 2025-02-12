@@ -42,6 +42,29 @@ def plot_avg_temps_in_dataset(processed_data: DataFrame,
     plt.title("Average Temperatures in Dataset")
 
 
+def plot_solid_fraction_distribution(processed_data: DataFrame,
+                                     bins: int = 20,
+                                     include_missing_hist = False) -> None:
+    """
+    Plot the solid fraction distribution present in avg_data.txt files of the dataset.
+
+    Parameters:
+        processed_data (DataFrame): DataFrame containing processed data
+        include_missing_hist (bool): Whether to include bins with missing hist files
+    """
+    processed_data = processed_data.dropna(subset=["solidFrac"])
+
+    if not include_missing_hist:
+        # Drop rows where the xrd_data is None
+        processed_data = processed_data.dropna(subset=["xrd_data"])
+
+    processed_data.hist(column="solidFrac", bins=bins)
+
+    plt.xlabel("Solid Fraction")
+    plt.ylabel("Frequency")
+    plt.title("Solid Fraction Distribution in Dataset")
+
+
 
 
 
