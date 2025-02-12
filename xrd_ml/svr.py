@@ -53,7 +53,7 @@ if __name__ == "__main__":
     plt.title("Train Data Solid Fraction Distribution")
     plt.savefig("train_solid_fraction_distribution.png")
 
+    plt.figure()
     plot_solid_fraction_distribution(validation, bins=20)
     plt.title("Validation Data Solid Fraction Distribution")
     plt.savefig("validation_solid_fraction_distribution.png")
-    plt.show()
