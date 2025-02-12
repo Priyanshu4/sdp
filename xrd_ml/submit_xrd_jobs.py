@@ -8,6 +8,7 @@ from load_data import (
     TEMP_TO_DIRECTORY,
     MELTING_TEMP_TO_DIRECTORY,
     get_entirely_missing_timesteps, 
+    get_missing_bins,
     load_processed_data_for_temp_directory,
 )
 
@@ -40,7 +41,7 @@ def run_job_submission_individual_files(directory: Path | str, file_start: int, 
             script_content[i] = f"fileStop={file_stop}\n"
 
     # Create a temporary script in the same directory as the original script
-    with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".sh", dir=directory) as temp_script:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", dir=directory) as temp_script:
         temp_script_path = temp_script.name  # Get the temporary file path
         temp_script.writelines(script_content)
         temp_script.flush()
@@ -87,6 +88,7 @@ if __name__ == "__main__":
     print("Options:")
     print("1. Submit XRD job for a specific timestep")
     print("2. Submit XRD jobs for entirely missing timesteps in a directory")
+    print("3. Get missing bins for all timesteps in a directory")
 
     option = int(input("Enter option: "))
 
@@ -113,7 +115,8 @@ if __name__ == "__main__":
         missing_timesteps = get_entirely_missing_timesteps(processed_data, temp, melting_temp)
 
         if len(missing_timesteps) == 0:
-            print("No timesteps were found with missing histograms for all bins. Double check your inputs.")
+            print("No timesteps were found with missing histograms for all 5 bins.")
+            print("There may still be some timesteps with partially missing bins. Use option 3 to get missing bins.")
             exit()
 
         print("Jobs will be submitted for the following timesteps. These timesteps should be missing XRD data for every bin:")
@@ -124,6 +127,37 @@ if __name__ == "__main__":
                 submit_xrd_job(temp, melting_temp, timestep)
         else:
             print("Jobs not submitted.")
+
+    elif option == 3:
+
+        print("Getting missing bins for all timesteps in a directory...")
+        temp = int(input("Enter temperature: "))
+        melting_temp = int(input("Enter melting temperature: "))
+
+        print(f"Loading processed data for temp {temp} and melting temp {melting_temp}...")
+        processed_data = load_processed_data_for_temp_directory(temp, melting_temp, suppress_load_errors=True)
+
+        missing_bins_data = get_missing_bins(processed_data)
+
+        if len(missing_bins_data) == 0:
+            print("No missing bins were found. Double check your inputs.")
+            exit()
+
+        # create a dict mapping timestep to missing bins
+        missing = dict()
+
+        # iterate over rows of the missing bins data
+        for i, row in missing_bins_data.iterrows():
+            timestep = row["timestep"]
+            bin = row["bin_num"]
+
+            bin_list = missing.get(timestep, [])
+            bin_list.append(bin)
+            missing[timestep] = bin_list
+
+        print("Missing bins for each timestep:")
+        for timestep, bins in missing.items():
+            print(f"Timestep {timestep}: {bins}")
 
     else:
         print("Invalid option. Exiting.")
