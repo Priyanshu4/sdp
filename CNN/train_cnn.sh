@@ -7,4 +7,4 @@
 #SBATCH -e cnn_training_%J.err
 
 module load python/3.8
-python train_cnn.py
+python CNN.py
