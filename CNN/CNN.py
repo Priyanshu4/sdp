@@ -3,6 +3,7 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 import glob
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import sys
 
 # Get the absolute path to the project root directory
