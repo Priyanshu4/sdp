@@ -3,7 +3,11 @@ import tensorflow as tf
 from tensorflow.keras import layers, models
 import glob
 import os
-from train_test_split import load_train_data, load_validation_data, get_x_y_as_np_array
+import sys
+
+# Add parent directory to Python path to find xrd_ml module
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from xrd_ml.train_test_split import load_train_data, load_validation_data, get_x_y_as_np_array
 
 class XRDNet:
     def __init__(self):
@@ -48,10 +52,24 @@ class XRDNet:
         ])
         return model
 
+    def calculate_sample_weights(self, y_values):
+        """
+        Calculate weights to balance the dataset
+        """
+        hist, bin_edges = np.histogram(y_values, bins=20, range=(0,1))
+        bin_indices = np.digitize(y_values, bin_edges) - 1
+        counts = hist[bin_indices]
+        weights = 1.0 / counts
+        weights = weights * (len(weights) / np.sum(weights))
+        return weights
+
     def train(self, X_train, y_train, X_val, y_val, epochs=100, batch_size=32):
         """
-        Train the model with proper validation data
+        Train the model with proper validation data and sample weights
         """
+        # Calculate sample weights to handle imbalance
+        sample_weights = self.calculate_sample_weights(y_train)
+        
         # Compile model
         self.model.compile(
             optimizer='adam',
@@ -87,6 +105,7 @@ class XRDNet:
             epochs=epochs,
             batch_size=batch_size,
             callbacks=callbacks,
+            sample_weight=sample_weights,
             verbose=1
         )
         
@@ -108,6 +127,27 @@ class XRDNet:
             'r2': r2,
             'predictions': predictions
         }
+
+    def evaluate_predictions_by_range(self, X_test, y_test):
+        """
+        Evaluate predictions across different ranges of solid fraction
+        """
+        predictions = self.model.predict(X_test)
+        ranges = [(0.0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.0)]
+        
+        results = {}
+        for start, end in ranges:
+            mask = (y_test >= start) & (y_test < end)
+            if np.sum(mask) > 0:
+                range_mse = np.mean((y_test[mask] - predictions[mask].flatten()) ** 2)
+                range_mae = np.mean(np.abs(y_test[mask] - predictions[mask].flatten()))
+                results[f"{start:.1f}-{end:.1f}"] = {
+                    "mse": range_mse,
+                    "mae": range_mae,
+                    "n_samples": np.sum(mask)
+                }
+        
+        return results
 
 def main():
     # Load data using your teammate's functions
@@ -133,12 +173,22 @@ def main():
     print("Training model...")
     history = xrd_net.train(X_train, y_train, X_val, y_val)
     
-    # Evaluate
+    # Evaluate overall performance
     print("Evaluating model...")
     results = xrd_net.evaluate_predictions(X_val, y_val)
+    print("\nOverall Performance:")
     print(f"Mean Squared Error: {results['mse']}")
     print(f"Mean Absolute Error: {results['mae']}")
     print(f"R² Score: {results['r2']}")
+    
+    # Evaluate performance by range
+    print("\nPerformance by solid fraction range:")
+    range_results = xrd_net.evaluate_predictions_by_range(X_val, y_val)
+    for range_name, metrics in range_results.items():
+        print(f"\nRange {range_name}:")
+        print(f"  MSE: {metrics['mse']:.4f}")
+        print(f"  MAE: {metrics['mae']:.4f}")
+        print(f"  Number of samples: {metrics['n_samples']}")
 
 if __name__ == "__main__":
     main()
