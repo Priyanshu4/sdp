@@ -22,6 +22,7 @@ class XRDNet:
         Build CNN architecture optimized for XRD pattern analysis with regression output
         """
         model = models.Sequential([
+            # Input layer - shape is (125, 1) because XRD patterns have 125 points
             layers.Input(shape=(125, 1)),
             
             # Convolutional blocks
@@ -41,7 +42,7 @@ class XRDNet:
             layers.BatchNormalization(),
             layers.Dropout(0.2),
             
-            # Dense layers
+            # Dense layers for final prediction
             layers.Flatten(),
             layers.Dense(1024, activation='relu'),
             layers.Dropout(0.5),
@@ -50,47 +51,15 @@ class XRDNet:
             layers.Dense(256, activation='relu'),
             layers.Dropout(0.5),
             
+            # Output layer - predicts liquid fraction
             layers.Dense(1, activation='linear')
         ])
         return model
 
-    def calculate_sample_weights(self, y_values):
-        """
-        Calculate weights to balance the dataset with safety checks
-        """
-        print(f"Data range: min={np.min(y_values)}, max={np.max(y_values)}")
-        
-        # Create histogram of solid fractions
-        hist, bin_edges = np.histogram(y_values, bins=20, range=(0,1))
-        
-        # Calculate bin indices with clipping
-        bin_indices = np.clip(np.digitize(y_values, bin_edges) - 1, 0, len(hist)-1)
-        
-        # Calculate weights
-        counts = hist[bin_indices]
-        weights = 1.0 / (counts + 1e-7)  # Add small constant to prevent division by zero
-        
-        # Normalize weights
-        weights = weights * (len(weights) / np.sum(weights))
-        
-        return weights
-
     def train(self, X_train, y_train, X_val, y_val, epochs=100, batch_size=32):
         """
-        Train the model with proper validation data and learning rate scheduling
+        Train the model with proper validation data
         """
-        # Calculate sample weights
-        sample_weights = self.calculate_sample_weights(y_train)
-        
-        # Learning rate scheduler
-        lr_scheduler = tf.keras.callbacks.ReduceLROnPlateau(
-            monitor='val_loss',
-            factor=0.5,
-            patience=5,
-            min_lr=1e-6,
-            verbose=1
-        )
-        
         # Compile model
         self.model.compile(
             optimizer='adam',
@@ -98,27 +67,25 @@ class XRDNet:
             metrics=['mae', 'mse']
         )
         
-        # Callbacks
+        # Add callbacks for training
         callbacks = [
             # Save best model
             tf.keras.callbacks.ModelCheckpoint(
-                'best_model.keras',  # Updated to .keras format
+                'best_model.keras',  # Updated to new format
                 monitor='val_loss',
                 save_best_only=True
             ),
-            # Early stopping
+            # Early stopping to prevent overfitting
             tf.keras.callbacks.EarlyStopping(
                 monitor='val_loss',
-                patience=15,  # Increased patience
+                patience=10,
                 restore_best_weights=True
             ),
-            # TensorBoard
+            # TensorBoard for visualization
             tf.keras.callbacks.TensorBoard(
                 log_dir='./logs',
                 histogram_freq=1
-            ),
-            # Learning rate scheduler
-            lr_scheduler
+            )
         ]
         
         # Train
@@ -128,7 +95,6 @@ class XRDNet:
             epochs=epochs,
             batch_size=batch_size,
             callbacks=callbacks,
-            sample_weight=sample_weights,
             verbose=1
         )
         
@@ -141,7 +107,7 @@ class XRDNet:
         """
         Plot training and validation metrics
         """
-        plt.figure(figsize=(15, 5))
+        plt.figure(figsize=(12, 5))
         
         # Plot loss
         plt.subplot(1, 2, 1)
@@ -167,6 +133,34 @@ class XRDNet:
         plt.savefig('training_history.png')
         plt.close()
 
+    def evaluate_predictions(self, X_test, y_test):
+        """
+        Evaluate model predictions
+        """
+        predictions = self.model.predict(X_test)
+        mse = np.mean((y_test - predictions.flatten()) ** 2)
+        mae = np.mean(np.abs(y_test - predictions.flatten()))
+        r2 = 1 - (np.sum((y_test - predictions.flatten()) ** 2) / 
+                 np.sum((y_test - np.mean(y_test)) ** 2))
+        
+        # Plot predictions vs actual
+        plt.figure(figsize=(8, 6))
+        plt.scatter(y_test, predictions, alpha=0.5)
+        plt.plot([0, 1], [0, 1], 'r--')  # Perfect prediction line
+        plt.xlabel('Actual Solid Fraction')
+        plt.ylabel('Predicted Solid Fraction')
+        plt.title('Predictions vs Actual Values')
+        plt.grid(True)
+        plt.savefig('predictions_vs_actual.png')
+        plt.close()
+        
+        return {
+            'mse': mse,
+            'mae': mae,
+            'r2': r2,
+            'predictions': predictions
+        }
+
     def evaluate_predictions_by_range(self, X_test, y_test):
         """
         Evaluate predictions across different ranges of solid fraction
@@ -188,42 +182,15 @@ class XRDNet:
         
         return results
 
-    def evaluate_predictions(self, X_test, y_test):
-        """
-        Evaluate model predictions
-        """
-        predictions = self.model.predict(X_test)
-        mse = np.mean((y_test - predictions.flatten()) ** 2)
-        mae = np.mean(np.abs(y_test - predictions.flatten()))
-        r2 = 1 - (np.sum((y_test - predictions.flatten()) ** 2) / 
-                 np.sum((y_test - np.mean(y_test)) ** 2))
-        
-        # Plot predictions vs actual
-        plt.figure(figsize=(10, 6))
-        plt.scatter(y_test, predictions, alpha=0.5)
-        plt.plot([0, 1], [0, 1], 'r--')  # Perfect prediction line
-        plt.xlabel('Actual Solid Fraction')
-        plt.ylabel('Predicted Solid Fraction')
-        plt.title('Predictions vs Actual Values')
-        plt.grid(True)
-        plt.savefig('predictions_vs_actual.png')
-        plt.close()
-        
-        return {
-            'mse': mse,
-            'mae': mae,
-            'r2': r2,
-            'predictions': predictions
-        }
-
 def main():
-    # Load and prepare data
+    # Load data using your teammate's functions
     print("Loading training data...")
     train_data = load_train_data()
     
     print("Loading validation data...")
     validation_data = load_validation_data()
     
+    # Convert to numpy arrays
     print("Converting to numpy arrays...")
     X_train, y_train = get_x_y_as_np_array(train_data)
     X_val, y_val = get_x_y_as_np_array(validation_data)
@@ -231,15 +198,6 @@ def main():
     # Reshape input data for CNN
     X_train = X_train.reshape(-1, 125, 1)
     X_val = X_val.reshape(-1, 125, 1)
-    
-    # Save training configuration
-    config = {
-        'train_samples': len(X_train),
-        'val_samples': len(X_val),
-        'epochs': 100,
-        'batch_size': 32,
-    }
-    np.save('training_config.npy', config)
     
     # Initialize and train model
     print("Initializing model...")
