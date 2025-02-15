@@ -12,4 +12,4 @@ module load python/3.8
 module load cuda/11.7  # For GPU support
 
 # Run training
-python CNN/CNN.py
+python CNN.py
