@@ -60,13 +60,28 @@ class XRDNet:
 
     def calculate_sample_weights(self, y_values):
         """
-        Calculate weights to balance the dataset
+        Calculate weights to balance the dataset with safety checks and diagnostics
         """
+        print(f"Data range: min={np.min(y_values)}, max={np.max(y_values)}")
+        
+        # Create histogram of solid fractions
         hist, bin_edges = np.histogram(y_values, bins=20, range=(0,1))
-        bin_indices = np.digitize(y_values, bin_edges) - 1
+        print("Bin edges:", bin_edges)
+        print("Histogram counts:", hist)
+        
+        # Calculate bin indices with clipping
+        bin_indices = np.clip(np.digitize(y_values, bin_edges) - 1, 0, len(hist)-1)
+        print(f"Bin indices range: min={np.min(bin_indices)}, max={np.max(bin_indices)}")
+        
+        # Calculate weights
         counts = hist[bin_indices]
-        weights = 1.0 / counts
+        weights = 1.0 / (counts + 1e-7)  # Add small constant to prevent division by zero
+        
+        # Normalize weights
         weights = weights * (len(weights) / np.sum(weights))
+        
+        print(f"Weight range: min={np.min(weights)}, max={np.max(weights)}")
+        
         return weights
 
     def train(self, X_train, y_train, X_val, y_val, epochs=100, batch_size=32):
