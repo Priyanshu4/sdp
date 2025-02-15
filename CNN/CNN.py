@@ -5,8 +5,14 @@ import glob
 import os
 import sys
 
-# Add parent directory to Python path to find xrd_ml module
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Get the absolute path to the project root directory
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Add the project root to Python path
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# Now import from xrd_ml
 from xrd_ml.train_test_split import load_train_data, load_validation_data, get_x_y_as_np_array
 
 class XRDNet:
