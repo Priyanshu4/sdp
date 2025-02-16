@@ -394,16 +394,22 @@ if __name__ == "__main__":
     path = Path("/gpfs/sharedfs1/MD-XRD-ML/02_Processed-Data")
 
     # Load a single avg data file
-    avg_data = load_avg_data(path / "01_300-Kelvin" / "2500-Kelvin" / "avg-data.0.txt")
-    print("Avg Data Example:")
-    print(avg_data.head())
-    print("")
+    try:
+        avg_data = load_avg_data(path / "01_300-Kelvin" / "2500-Kelvin" / "avg-data.0.txt")
+        print("Avg Data Example:")
+        print(avg_data.head())
+        print("")
+    except Exception as e:
+        pass
 
     # Load a single xrd hist file
-    xrd_data = load_xrd_hist(path / "01_300-Kelvin" / "2500-Kelvin" / "0.1.hist.xrd")
-    print("XRD Data Example:")
-    print(xrd_data.head())
-    print("")
+    try:
+        xrd_data = load_xrd_hist(path / "01_300-Kelvin" / "2500-Kelvin" / "0.1.hist.xrd")
+        print("XRD Data Example:")
+        print(xrd_data.head())
+        print("")
+    except Exception as e:
+        pass
     
     # Load all the data
     processed_data = load_processed_data(path, verbose=True)
