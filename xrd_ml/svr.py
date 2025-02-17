@@ -57,3 +57,13 @@ if __name__ == "__main__":
     plot_solid_fraction_distribution(validation, bins=20)
     plt.title("Validation Data Solid Fraction Distribution")
     plt.savefig("validation_solid_fraction_distribution.png")
+
+    # Plot predictions vs actual
+    plt.figure(figsize=(8, 6))
+    plt.scatter(validation_y, predictions, alpha=0.5)
+    plt.plot([0, 1], [0, 1], 'r--')  # Perfect prediction line
+    plt.xlabel('Actual Solid Fraction')
+    plt.ylabel('Predicted Solid Fraction')
+    plt.title('Predictions vs Actual Values')
+    plt.grid(True)
+    plt.savefig('svr_predictions_vs_actual.png')
