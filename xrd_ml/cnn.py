@@ -1,17 +1,8 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
-import glob
-import os
-import sys
 import matplotlib.pyplot as plt
-
-# Get the absolute path to the project root directory
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
-from xrd_ml.train_test_split import load_train_data, load_validation_data, get_x_y_as_np_array
+from train_test_split import load_train_data, load_validation_data, get_x_y_as_np_array
 
 class XRDNet:
     def __init__(self):
