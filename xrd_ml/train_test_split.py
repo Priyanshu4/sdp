@@ -1,4 +1,4 @@
-from .load_data import load_processed_data_for_list_of_temps
+from load_data import load_processed_data_for_list_of_temps
 from typing import Tuple
 import pandas as pd
 import numpy as np
