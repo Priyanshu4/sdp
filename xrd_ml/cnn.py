@@ -53,7 +53,7 @@ class XRDNet:
         """
         # Compile model
         self.model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=5e-7), #optimizer='adam',
+            optimizer='adam', #optimizer=tf.keras.optimizers.Adam(learning_rate=5e-7),
             loss='mse',
             metrics=['mae', 'mse']
         )
