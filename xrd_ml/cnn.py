@@ -19,18 +19,22 @@ class XRDNet:
             # Convolutional blocks
             layers.Conv1D(64, kernel_size=7, activation='relu', padding='same'),
             layers.BatchNormalization(),
+            layers.MaxPooling1D(pool_size=4),
             layers.Dropout(0.2),
             
             layers.Conv1D(128, kernel_size=5, activation='relu', padding='same'),
             layers.BatchNormalization(),
+            layers.MaxPooling1D(pool_size=4),
             layers.Dropout(0.2),
             
             layers.Conv1D(256, kernel_size=3, activation='relu', padding='same'),
             layers.BatchNormalization(),
+            layers.MaxPooling1D(pool_size=2),
             layers.Dropout(0.2),
             
             layers.Conv1D(512, kernel_size=3, activation='relu', padding='same'),
             layers.BatchNormalization(),
+            layers.MaxPooling1D(pool_size=2),
             layers.Dropout(0.2),
             
             # Dense layers for final prediction
