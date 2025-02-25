@@ -21,6 +21,7 @@ TEMP_TO_DIRECTORY = {
 }
 
 MELTING_TEMP_TO_DIRECTORY = {
+    2000: "2000-Kelvin-Constant-Heat",
     2500: "2500-Kelvin",
     3500: "3500-Kelvin",
 }
