@@ -8,7 +8,6 @@ from train_test_split import (
     load_train_data, 
     load_validation_data,
     get_x_y_as_np_array)
-from plotting import plot_solid_fraction_distribution
 
 if __name__ == "__main__":
     print("Loading dataset...")
@@ -22,12 +21,20 @@ if __name__ == "__main__":
     print(f"Number of features: {n_features}")
     print(f"Number of training samples: {n_samples}")
     print(f"Number of validation samples: {validation_x.shape[0]}")
+
+    # NOTE:
+    # In this case, we are treating the validation data as a test set.
+    # We are not using the validation data to tune hyperparameters and are only using it to evaluate the model.
+    # TODO: Load the test data and use it to evaluate the final model. Combine validation into training data.
+
+    # scikit-learn uses this value when we set gamma='scale'
+    gamma_scale = 1 / (n_features * np.var(train_x))
     
     # Define the parameter grid to search
     param_grid = {
-        'C': [0.1, 1, 10, 100],
-        'gamma': ['scale', 'auto', 0.01, 0.1, 1],
-        'epsilon': [0.01, 0.1, 0.2]
+        'C': [0.1, 1, 10, 100, 500, 1000],
+        'gamma': sorted([gamma_scale, 0.01, 0.1, 1, 10, 100]),
+        'epsilon': [0.001, 0.005, 0.01, 0.1, 1]
     }
     
     # Create base SVR model
@@ -71,20 +78,7 @@ if __name__ == "__main__":
     print(f"Root Mean Squared Error (RMSE): {rmse:.6f}")
     print(f"R^2 Score (r2_score): {r2:.6f}")
     
-    # Create results DataFrame for all tested parameters
-    results = pd.DataFrame(grid_search.cv_results_)
-    
-    # plot solid fraction distribution for train and val
-    plt.figure()
-    plot_solid_fraction_distribution(train, bins=20)
-    plt.title("Train Data Solid Fraction Distribution")
-    plt.savefig("train_solid_fraction_distribution.png")
-    
-    plt.figure()
-    plot_solid_fraction_distribution(validation, bins=20)
-    plt.title("Validation Data Solid Fraction Distribution")
-    plt.savefig("validation_solid_fraction_distribution.png")
-    
+
     # Plot predictions vs actual
     plt.figure(figsize=(8, 6))
     plt.scatter(validation_y, predictions, alpha=0.5)
@@ -95,9 +89,10 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.savefig('svr_best_predictions_vs_actual.png')
     
-    # Visualize hyperparameter performance
-    plt.figure(figsize=(15, 10))
+    # Create results DataFrame for all tested parameters
+    results = pd.DataFrame(grid_search.cv_results_)
     
+
     # Group by C and gamma, find best epsilon for each combination
     grouped_results = results.groupby(['param_C', 'param_gamma']).apply(
         lambda x: x.loc[x['mean_test_score'].idxmax()]
@@ -111,38 +106,14 @@ if __name__ == "__main__":
     )
     
     # Plot heatmap
-    plt.subplot(1, 2, 1)
+    plt.figure()
     heatmap = plt.imshow(-pivot_table, cmap='viridis', aspect='auto')
     plt.colorbar(heatmap, label='Negative MSE')
     plt.title('Hyperparameter Performance (C vs gamma)')
     plt.xlabel('gamma')
     plt.ylabel('C')
-    plt.xticks(range(len(pivot_table.columns)), pivot_table.columns)
+    plt.xticks(range(len(pivot_table.columns)), [round(x, 2) for x  in pivot_table.columns])
     plt.yticks(range(len(pivot_table.index)), pivot_table.index)
+    plt.savefig('svr_gridsearch.png')
     
-    # Plot convergence of top models
-    plt.subplot(1, 2, 2)
-    top_results = results.sort_values('mean_test_score', ascending=False).head(10)
-    x_values = range(1, len(top_results) + 1)
-    plt.plot(x_values, -top_results['mean_test_score'], 'o-')
-    plt.title('Top 10 Models Performance')
-    plt.xlabel('Model Rank')
-    plt.ylabel('MSE (Cross-Validation)')
-    plt.grid(True)
-    
-    plt.tight_layout()
-    plt.savefig('hyperparameter_analysis.png')
-    
-    # Save results to CSV
-    results_df = pd.DataFrame({
-        'C': results['param_C'],
-        'gamma': results['param_gamma'],
-        'epsilon': results['param_epsilon'],
-        'mean_test_score': -results['mean_test_score'],
-        'std_test_score': results['std_test_score'],
-        'rank_test_score': results['rank_test_score']
-    })
-    results_df.sort_values('mean_test_score').to_csv('svr_grid_search_results.csv', index=False)
-    
-    print("\nGrid search results saved to 'svr_grid_search_results.csv'")
     print("Visualization plots saved to disk")
