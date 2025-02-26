@@ -31,24 +31,30 @@ VALIDATION_DATA = [
 ]
 
 for train_dir in TRAIN_DATA:
-    for test_dir in VALIDATION_DATA:
-        if train_dir == test_dir:
-            raise ValueError(f"Train and test directories should not have any overlap: {train_dir}")
+    for val_dir in VALIDATION_DATA:
+        if train_dir == val_dir:
+            raise ValueError(f"Train and validation directories should not have any overlap: {train_dir}")
 
-def load_train_data(suppress_load_errors = False) -> pd.DataFrame:
+def load_train_data(suppress_load_errors = False, include_validation_set = False) -> pd.DataFrame:
     """
     Load the training data.
 
     Parameters:
         suppress_load_errors (bool): Whether to suppress errors during loading
+        include_validation_set (bool): Whether to include the validation set in the training data. 
     
     Returns:
         DataFrame: Training data
 
     See load_processed_data for description of the DataFrame.
     """ 
+    if include_validation_set:
+        data = TRAIN_DATA + VALIDATION_DATA
+    else:
+        data = TRAIN_DATA
+
     return load_processed_data_for_list_of_temps(
-        TRAIN_DATA, 
+        data, 
         suppress_load_errors = suppress_load_errors)
     
 
@@ -138,5 +144,22 @@ if __name__ == "__main__":
 
     print(f"Train Y with shape {train_y.shape}:")
     print(train_y)
+
+    # val as numpy
+    validation_x, validation_y = get_x_y_as_np_array(validation)
+    print(f"Validation X with shape {validation_x.shape}:")
+    print(validation_x)
+
+    print(f"Validation Y with shape {validation_y.shape}:")
+    print(validation_y)
+
+    # Check that no two train and validation datapoints are the same
+    print('Verifying that train and validation data do not overlap...')
+    for i in range(len(train_x)):
+        for j in range(len(validation_x)):
+            if np.all(train_x[i] == validation_x[j]):
+                raise ValueError(f"Train and validation data should not have any overlap: {i}, {j}")
+
+
 
 
