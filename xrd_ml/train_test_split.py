@@ -30,6 +30,11 @@ VALIDATION_DATA = [
     (1200, 2500),
 ]
 
+for train_dir in TRAIN_DATA:
+    for test_dir in VALIDATION_DATA:
+        if train_dir == test_dir:
+            raise ValueError(f"Train and test directories should not have any overlap: {train_dir}")
+
 def load_train_data(suppress_load_errors = False) -> pd.DataFrame:
     """
     Load the training data.
