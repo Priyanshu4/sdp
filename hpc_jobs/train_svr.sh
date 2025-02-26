@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#SBATCH -N 1
-#SBATCH -n 1
+#SBATCH --nodes 1
+#SBATCH --ntasks 4
 
 module purge
 
