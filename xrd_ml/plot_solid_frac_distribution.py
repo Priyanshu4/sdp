@@ -15,7 +15,7 @@ if __name__ == "__main__":
     print("Saved plot to full_solid_fraction_distribution.png")
 
     plt.figure()
-    plot_solid_fraction_distribution(train, bins=20, include_missing_hist=True)
+    plot_solid_fraction_distribution(train, bins=20, include_missing_hist=False)
     plt.title("Solid Fraction Distribution (only processed XRDs)")
     plt.savefig("processed_solid_fraction_distribution.png")
     print("Saved plot to processed_solid_fraction_distribution.png")
