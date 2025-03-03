@@ -347,7 +347,7 @@ def load_processed_data(directory_path: Path | str = PROCESSED_DATA_PATH,
         if verbose:
             print(f"\t{temp_dir.name}")
 
-        for melt_dir in temp_dir.glob("*-Kelvin"):
+        for melt_dir in temp_dir.glob("*-Kelvin*"):
             melt_temp = int(melt_dir.name.split('-')[0])
         
 
