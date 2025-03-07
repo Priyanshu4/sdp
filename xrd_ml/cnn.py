@@ -221,5 +221,17 @@ def main():
         print(f"  MAE: {metrics['mae']:.4f}")
         print(f"  Number of samples: {metrics['n_samples']}")
 
+    # Plot model architecture
+    tf.keras.utils.plot_model(
+        xrd_net.model,
+        to_file='model_architecture.png',
+        show_shapes=True,
+        show_layer_names=True,
+        rankdir='TB',  # 'TB' for vertical, 'LR' for horizontal
+        expand_nested=True,
+        dpi=96
+    )
+    print("Model architecture saved to 'model_architecture.png'")
+
 if __name__ == "__main__":
     main()
