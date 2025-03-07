@@ -51,7 +51,7 @@ class XRDNet:
         ])
         return model
 
-    def train(self, X_train, y_train, X_val, y_val, epochs=100, batch_size=32):
+    def train(self, X_train, y_train, X_val, y_val, epochs=150, batch_size=32): #made them from 100 to 150 epochs
         """
         Train the model with proper validation data
         """
@@ -179,6 +179,55 @@ class XRDNet:
         
         return results
 
+    # Create a text-based summary of the model instead of a graph (graphviz is not working)
+    def summarize_model(model):
+        """Create a text-based summary of the model architecture"""
+        # Get model summary as a string
+        string_list = []
+        model.summary(line_length=100, print_fn=lambda x: string_list.append(x))
+        model_summary = "\n".join(string_list)
+        
+        # Save to file
+        with open('model_architecture_summary.txt', 'w') as f:
+            f.write(model_summary)
+        
+        # Create a simple text-based diagram
+        with open('model_architecture_diagram.txt', 'w') as f:
+            f.write("CNN Architecture Diagram\n")
+            f.write("======================\n\n")
+            f.write("Input (125, 1)\n")
+            f.write("  ↓\n")
+            
+            # List layers in sequence
+            for layer in model.layers:
+                layer_name = layer.__class__.__name__
+                config = layer.get_config()
+                
+                if 'Conv1D' in layer_name:
+                    filters = config['filters']
+                    kernel = config['kernel_size']
+                    f.write(f"Conv1D ({filters} filters, kernel={kernel})\n")
+                elif 'MaxPooling1D' in layer_name:
+                    pool = config['pool_size']
+                    f.write(f"MaxPooling1D (pool_size={pool})\n")
+                elif 'Dense' in layer_name:
+                    units = config['units']
+                    f.write(f"Dense ({units} units)\n")
+                elif 'Dropout' in layer_name:
+                    rate = config['rate']
+                    f.write(f"Dropout (rate={rate})\n")
+                elif 'BatchNormalization' in layer_name:
+                    f.write("BatchNormalization\n")
+                elif 'Flatten' in layer_name:
+                    f.write("Flatten\n")
+                
+                f.write("  ↓\n")
+            
+            f.write("Output (1)\n")
+        
+        print("Model summarized in 'model_architecture_summary.txt'")
+        print("Simple model diagram saved to 'model_architecture_diagram.txt'")
+
 def main():
     # Load data using your teammate's functions
     print("Loading training data...")
@@ -221,6 +270,9 @@ def main():
         print(f"  MAE: {metrics['mae']:.4f}")
         print(f"  Number of samples: {metrics['n_samples']}")
 
+    # Use this function in your main()
+    summarize_model(xrd_net.model)
+
     # Plot model architecture
     tf.keras.utils.plot_model(
         xrd_net.model,
@@ -232,6 +284,7 @@ def main():
         dpi=96
     )
     print("Model architecture saved to 'model_architecture.png'")
+
 
 if __name__ == "__main__":
     main()
