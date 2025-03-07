@@ -51,7 +51,7 @@ class XRDNet:
         ])
         return model
 
-    def train(self, X_train, y_train, X_val, y_val, epochs=150, batch_size=32): #made them from 100 to 150 epochs
+    def train(self, X_train, y_train, X_val, y_val, epochs=100, batch_size=32):
         """
         Train the model with proper validation data
         """
@@ -271,7 +271,7 @@ def main():
         print(f"  Number of samples: {metrics['n_samples']}")
 
     # Use this function in your main()
-    summarize_model(xrd_net.model)
+    XRDNet.summarize_model(xrd_net.model)
 
     # Plot model architecture
     tf.keras.utils.plot_model(
