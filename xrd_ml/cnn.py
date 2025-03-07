@@ -73,7 +73,7 @@ class XRDNet:
             # Early stopping to prevent overfitting
             tf.keras.callbacks.EarlyStopping(
                 monitor='val_loss',
-                patience=10,
+                patience=15, #                             <- from 10 to 15
                 restore_best_weights=True
             ),
             # TensorBoard for visualization
