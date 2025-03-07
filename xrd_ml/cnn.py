@@ -134,6 +134,7 @@ class XRDNet:
         """
         predictions = self.model.predict(X_test)
         mse = np.mean((y_test - predictions.flatten()) ** 2)
+        rmse = np.sqrt(mse)
         mae = np.mean(np.abs(y_test - predictions.flatten()))
         r2 = 1 - (np.sum((y_test - predictions.flatten()) ** 2) / 
                  np.sum((y_test - np.mean(y_test)) ** 2))
@@ -151,6 +152,7 @@ class XRDNet:
         
         return {
             'mse': mse,
+            'rmse': rmse,
             'mae': mae,
             'r2': r2,
             'predictions': predictions
@@ -206,6 +208,7 @@ def main():
     results = xrd_net.evaluate_predictions(X_val, y_val)
     print("\nOverall Performance:")
     print(f"Mean Squared Error: {results['mse']}")
+    print(f"Root Mean Squared Error: {results['rmse']}")
     print(f"Mean Absolute Error: {results['mae']}")
     print(f"R² Score: {results['r2']}")
     
