@@ -1,21 +1,41 @@
-from plotting import plot_solid_fraction_distribution
+from plotting import plot_solid_fraction_distribution, save_plot
 import matplotlib.pyplot as plt
 from load_data import load_processed_data
+from train_test_split import (
+    load_train_data,
+    load_validation_data,
+)
 
 if __name__ == "__main__":
 
     print("Loading dataset...")
-    train = load_processed_data(suppress_load_errors=True)
+    full_dataset = load_processed_data(suppress_load_errors=True)
 
     print(f"Making plots...")
     plt.figure()
-    plot_solid_fraction_distribution(train, bins=20, include_missing_hist=True)
+    plot_solid_fraction_distribution(full_dataset, bins=20, include_missing_hist=True)
     plt.title("Solid Fraction Distribution (with unprocessed XRDs)")
-    plt.savefig("full_solid_fraction_distribution.png")
+    save_plot("full_solid_fraction_distribution.png")
     print("Saved plot to full_solid_fraction_distribution.png")
 
     plt.figure()
-    plot_solid_fraction_distribution(train, bins=20, include_missing_hist=False)
+    plot_solid_fraction_distribution(full_dataset, bins=20, include_missing_hist=False)
     plt.title("Solid Fraction Distribution (only processed XRDs)")
-    plt.savefig("processed_solid_fraction_distribution.png")
+    save_plot("processed_solid_fraction_distribution.png")
     print("Saved plot to processed_solid_fraction_distribution.png")
+
+    print("Loading training data...")
+    train = load_train_data(suppress_load_errors=True)
+    plt.figure()
+    plot_solid_fraction_distribution(train, bins=20, include_missing_hist=False)
+    plt.title("Training Data: Solid Fraction Distribution")
+    save_plot("train_solid_fraction_distribution.png")
+    print("Saved plot to train_solid_fraction_distribution.png")
+
+    print("Loading validation data...")
+    validation = load_validation_data(suppress_load_errors=True)
+    plt.figure()
+    plot_solid_fraction_distribution(validation, bins=20, include_missing_hist=False)
+    plt.title("Validation Data: Solid Fraction Distribution")
+    save_plot("validation_solid_fraction_distribution.png")
+    print("Saved plot to validation_solid_fraction_distribution.png")

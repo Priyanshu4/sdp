@@ -1,4 +1,6 @@
-from load_data import load_processed_data_for_list_of_temps
+from load_data import (
+    load_processed_data_for_list_of_temps,
+    load_processed_data_for_temp_directory)
 from typing import Tuple
 import pandas as pd
 import numpy as np
@@ -9,7 +11,7 @@ TRAIN_DATA = [
     (300, 3500),
     (400, 3500),
     (500, 2500),
-    (600, 3500),
+    (600, 2500),
     (600, 3500),
     (700, 2500),
     (700, 3500),
@@ -74,6 +76,25 @@ def load_validation_data(suppress_load_errors = False) -> pd.DataFrame:
         VALIDATION_DATA, 
         suppress_load_errors = suppress_load_errors)
 
+def load_validation_data_by_temp(suppress_load_errors = False) -> dict[Tuple[int, int], pd.DataFrame]:
+    """
+    Load the validation data as a dictionary of DataFrames, where the key is the temperature tuple.
+    Temperature tuple is (temp, melt_temp).
+
+    Parameters:
+        suppress_load_errors (bool): Whether to suppress errors during loading
+    
+    Returns:
+        dict[Tuple[int, int], pd.DataFrame]: Validation data
+
+    See load_processed_data for description of the DataFrame.
+    """ 
+    validation_data = {}
+    for temp, melt_temp in VALIDATION_DATA:
+        validation_data[(temp, melt_temp)] = load_processed_data_for_temp_directory(
+            temp, melt_temp, suppress_load_errors = suppress_load_errors)
+    return validation_data
+        
 def get_x_y_as_np_array(data: pd.DataFrame,
                         include_missing_Y_data = False) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -123,7 +144,30 @@ def get_x_y_as_np_array(data: pd.DataFrame,
 
     return X, Y
 
-      
+def data_by_temp_to_x_y_np_array(data: dict[Tuple[int, int], pd.DataFrame],
+                                 include_missing_Y_data = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Convert the dictionary of DataFrames to an X array, Y array and temperature tuple array.
+    Parameters:
+        data (dict[Tuple[int, int], pd.DataFrame]): Dictionary of DataFrames containing the data
+        include_missing_Y_data (bool): Whether to include rows with missing (NaN) solidFrac data
+
+    Returns:
+        X (np.ndarray): X data
+        Y (np.ndarray): Y data
+        temperatures (np.ndarray): Temperature tuples corresponding to the data (shape n by 2)
+    """
+    for (temp, melt_temp), df in data.items():
+        X, Y = get_x_y_as_np_array(df, include_missing_Y_data)
+        if (temp, melt_temp) == VALIDATION_DATA[0]:
+            X_all = X
+            Y_all = Y
+            temperatures = np.array([(temp, melt_temp)] * len(X))
+        else:
+            X_all = np.concatenate((X_all, X))
+            Y_all = np.concatenate((Y_all, Y))
+            temperatures = np.concatenate((temperatures, np.array([(temp, melt_temp)] * len(X))))
+    return X_all, Y_all, temperatures
 
 if __name__ == "__main__":
 

@@ -4,18 +4,23 @@ from sklearn.model_selection import GridSearchCV, KFold
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from plotting import (
+    plot_model_predictions_by_temp,
+    save_plot
+)
 from train_test_split import (
     load_train_data, 
-    load_validation_data,
-    get_x_y_as_np_array)
+    load_validation_data_by_temp,
+    get_x_y_as_np_array,
+    data_by_temp_to_x_y_np_array)
 
 if __name__ == "__main__":
     print("Loading dataset...")
     train = load_train_data(suppress_load_errors=True)
-    validation = load_validation_data(suppress_load_errors=True)    
+    validation = load_validation_data_by_temp(suppress_load_errors=True)
     
     train_x, train_y = get_x_y_as_np_array(train)
-    validation_x, validation_y = get_x_y_as_np_array(validation)
+    validation_x, validation_y, temps = data_by_temp_to_x_y_np_array(validation)
     
     n_samples, n_features = train_x.shape
     print(f"Number of features: {n_features}")
@@ -36,7 +41,7 @@ if __name__ == "__main__":
         'gamma': sorted([gamma_scale, 0.01, 0.1, 1, 10, 100]),
         'epsilon': [0.001, 0.005, 0.01, 0.1, 1]
     }
-    
+
     # Create base SVR model
     svr = SVR(kernel='rbf')
     
@@ -78,16 +83,11 @@ if __name__ == "__main__":
     print(f"Root Mean Squared Error (RMSE): {rmse:.6f}")
     print(f"R^2 Score (r2_score): {r2:.6f}")
     
-
     # Plot predictions vs actual
     plt.figure(figsize=(8, 6))
-    plt.scatter(validation_y, predictions, alpha=0.5)
-    plt.plot([0, 1], [0, 1], 'r--')  # Perfect prediction line
-    plt.xlabel('Actual Solid Fraction')
-    plt.ylabel('Predicted Solid Fraction')
+    plot_model_predictions_by_temp(validation_y, predictions, temps)
     plt.title('SVR Predictions vs Actual Values (Best Model)')
-    plt.grid(True)
-    plt.savefig('svr_best_predictions_vs_actual.png')
+    save_plot('svr_best_predictions_vs_actual.png')
     
     # Create results DataFrame for all tested parameters
     results = pd.DataFrame(grid_search.cv_results_)
@@ -114,6 +114,6 @@ if __name__ == "__main__":
     plt.ylabel('C')
     plt.xticks(range(len(pivot_table.columns)), [round(x, 2) for x  in pivot_table.columns])
     plt.yticks(range(len(pivot_table.index)), pivot_table.index)
-    plt.savefig('svr_gridsearch.png')
+    save_plot('svr_gridsearch.png')
     
     print("Visualization plots saved to disk")

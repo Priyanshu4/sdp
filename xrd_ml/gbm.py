@@ -2,6 +2,10 @@ import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 import matplotlib.pyplot as plt
+from plotting import (
+    plot_model_predictions,
+    save_plot
+)
 from train_test_split import (
     load_train_data, 
     load_validation_data,
@@ -77,20 +81,14 @@ class XRDBoost:
         xgb.plot_importance(self.model, importance_type=importance_type)
         plt.title('XGBoost Feature Importance')
         plt.tight_layout()
-        plt.savefig('xgboost_feature_importance.png')
-        plt.close()
+        save_plot('xgboost_feature_importance.png')
 
     def plot_predictions(self, y_true, y_pred):
         """Plot predicted vs actual values"""
         plt.figure(figsize=(8, 6))
-        plt.scatter(y_true, y_pred, alpha=0.5)
-        plt.plot([0, 1], [0, 1], 'r--')
-        plt.xlabel('Actual Solid Fraction')
-        plt.ylabel('Predicted Solid Fraction')
+        plot_model_predictions(y_true, y_pred)
         plt.title('XGBoost: Predictions vs Actual Values')
-        plt.grid(True)
-        plt.savefig('xgboost_predictions_vs_actual.png')
-        plt.close()
+        save_plot('xgboost_predictions_vs_actual.png')
 
     def evaluate_by_range(self, X_test, y_test):
         """Evaluate predictions across different ranges of solid fraction"""
