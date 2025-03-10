@@ -20,7 +20,7 @@ if __name__ == "__main__":
     validation = load_validation_data_by_temp(suppress_load_errors=True)
     
     train_x, train_y = get_x_y_as_np_array(train)
-    validation_x, validation_y, temps = data_by_temp_to_x_y_np_array(validation)
+    validation_x, validation_y, validation_temps = data_by_temp_to_x_y_np_array(validation)
     
     n_samples, n_features = train_x.shape
     print(f"Number of features: {n_features}")
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     
     # Plot predictions vs actual
     plt.figure(figsize=(8, 6))
-    plot_model_predictions_by_temp(validation_y, predictions, temps)
+    plot_model_predictions_by_temp(validation_y, predictions, validation_temps)
     plt.title('SVR Predictions vs Actual Values (Best Model)')
     save_plot('svr_best_predictions_vs_actual.png')
     
