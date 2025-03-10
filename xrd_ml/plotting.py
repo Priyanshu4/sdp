@@ -67,6 +67,13 @@ def plot_solid_fraction_distribution(processed_data: DataFrame,
     plt.ylabel("Frequency")
     plt.title("Solid Fraction Distribution in Dataset")
 
+def plot_model_predictions(true_solid_fractions, predicted_solid_fractions) -> None:
+    plt.scatter(true_solid_fractions, predicted_solid_fractions, alpha=0.5)
+    plt.plot([0, 1], [0, 1], 'r--')  # Perfect prediction line
+    plt.xlabel('Actual Solid Fraction')
+    plt.ylabel('Predicted Solid Fraction')
+    plt.grid(True)
+
 def save_plot(plot_name: str) -> None:
     """
     Save the current plot to the plots folder.
