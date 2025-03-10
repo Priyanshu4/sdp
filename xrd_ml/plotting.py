@@ -1,5 +1,8 @@
 from pandas import DataFrame
 import matplotlib.pyplot as plt
+from pathlib import Path
+
+PLOTS_FOLDER = Path(__file__).parent.parent / "plots"
 
 def plot_xrd_hist(xrd_hist: DataFrame, title = "") -> None:
     """
@@ -63,6 +66,17 @@ def plot_solid_fraction_distribution(processed_data: DataFrame,
     plt.xlabel("Solid Fraction")
     plt.ylabel("Frequency")
     plt.title("Solid Fraction Distribution in Dataset")
+
+def save_plot(plot_name: str) -> None:
+    """
+    Save the current plot to the plots folder.
+
+    Parameters:
+        plot_name (str): Name of the plot file
+    """
+    PLOTS_FOLDER.mkdir(parents=True, exist_ok=True)
+    plt.savefig(PLOTS_FOLDER / plot_name)
+    plt.close()
 
 
 
