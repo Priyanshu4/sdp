@@ -32,10 +32,29 @@ VALIDATION_DATA = [
     (1200, 2500),
 ]
 
+# (temp, melt_temp) to use in test_data
+TEST_SET = [
+    (300, 2000),
+    (400, 2000),
+    (500, 2000),
+    (600, 2000),
+    (700, 2000),
+    (800, 2000),
+    (900, 2000),
+    (1000, 2000),
+    (1100, 2000),
+    (1200, 2000),
+]
+
 for train_dir in TRAIN_DATA:
     for val_dir in VALIDATION_DATA:
-        if train_dir == val_dir:
-            raise ValueError(f"Train and validation directories should not have any overlap: {train_dir}")
+        for test_dir in TEST_SET:
+            if train_dir == val_dir:
+                raise ValueError(f"Train and validation directories should not have any overlap: {train_dir}")
+            if train_dir == test_dir:
+                raise ValueError(f"Train and test directories should not have any overlap: {train_dir}")
+            if val_dir == test_dir:
+                raise ValueError(f"Validation and test directories should not have any overlap: {val_dir}")
 
 def load_train_data(suppress_load_errors = False, include_validation_set = False) -> pd.DataFrame:
     """
@@ -95,6 +114,41 @@ def load_validation_data_by_temp(suppress_load_errors = False) -> dict[Tuple[int
             temp, melt_temp, suppress_load_errors = suppress_load_errors)
     return validation_data
         
+def load_test_data(suppress_load_errors = False) -> pd.DataFrame:
+    """
+    Load the test data.
+
+    Parameters:
+        suppress_load_errors (bool): Whether to suppress errors during loading
+    
+    Returns:
+        DataFrame: Test data
+
+    See load_processed_data for description of the DataFrame.
+    """ 
+    return load_processed_data_for_list_of_temps(
+        TEST_SET, 
+        suppress_load_errors = suppress_load_errors)
+
+def load_test_data_by_temp(suppress_load_errors = False) -> dict[Tuple[int, int], pd.DataFrame]:
+    """
+    Load the test data as a dictionary of DataFrames, where the key is the temperature tuple.
+    Temperature tuple is (temp, melt_temp).
+
+    Parameters:
+        suppress_load_errors (bool): Whether to suppress errors during loading
+    
+    Returns:
+        dict[Tuple[int, int], pd.DataFrame]: Test data
+
+    See load_processed_data for description of the DataFrame.
+    """ 
+    test_data = {}
+    for temp, melt_temp in TEST_SET:
+        test_data[(temp, melt_temp)] = load_processed_data_for_temp_directory(
+            temp, melt_temp, suppress_load_errors = suppress_load_errors)
+    return test_data
+
 def get_x_y_as_np_array(data: pd.DataFrame,
                         include_missing_Y_data = False) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -181,6 +235,11 @@ if __name__ == "__main__":
     print("Validation Data:")
     print(validation.head())
 
+    print("Loading test data...")
+    test = load_test_data(suppress_load_errors=True)
+    print("Test Data:")
+    print(test.head())
+
     # train as numpy
     train_x, train_y = get_x_y_as_np_array(train)
     print(f"Train X with shape {train_x.shape}:")
@@ -197,13 +256,35 @@ if __name__ == "__main__":
     print(f"Validation Y with shape {validation_y.shape}:")
     print(validation_y)
 
-    # Check that no two train and validation datapoints are the same
-    print('Verifying that train and validation data do not overlap...')
+    # test as numpy
+    test_x, test_y = get_x_y_as_np_array(test)
+    print(f"Test X with shape {test_x.shape}:")
+    print(test_x)
+
+    print(f"Test Y with shape {test_y.shape}:")
+    print(test_y)
+
+    # Check that no two train, validation or test datapoints are the same
+    print('Verifying that train, validation and test data do not overlap...')
+
+
+
     for i in range(len(train_x)):
         for j in range(len(validation_x)):
             if np.all(train_x[i] == validation_x[j]):
                 raise ValueError(f"Train and validation data should not have any overlap: {i}, {j}")
 
+    for i in range(len(train_x)):
+        for j in range(len(test_x)):
+            if np.all(train_x[i] == test_x[j]):
+                raise ValueError(f"Train and test data should not have any overlap: {i}, {j}")
+
+    for i in range(len(validation_x)):
+        for j in range(len(test_x)):
+            if np.all(validation_x[i] == test_x[j]):
+                raise ValueError(f"Validation and test data should not have any overlap: {i}, {j}")   
+
+    print("All checks passed!")
 
 
 

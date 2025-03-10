@@ -4,6 +4,7 @@ from load_data import load_processed_data
 from train_test_split import (
     load_train_data,
     load_validation_data,
+    load_test_data
 )
 
 if __name__ == "__main__":
@@ -39,3 +40,11 @@ if __name__ == "__main__":
     plt.title("Validation Data: Solid Fraction Distribution")
     save_plot("validation_solid_fraction_distribution.png")
     print("Saved plot to validation_solid_fraction_distribution.png")
+
+    print("Loading test data...")
+    test = load_test_data(suppress_load_errors=True)
+    plt.figure()
+    plot_solid_fraction_distribution(test, bins=20, include_missing_hist=False)
+    plt.title("Test Data: Solid Fraction Distribution")
+    save_plot("test_solid_fraction_distribution.png")
+    print("Saved plot to test_solid_fraction_distribution.png")
