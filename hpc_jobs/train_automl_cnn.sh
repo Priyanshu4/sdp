@@ -1,9 +1,6 @@
 #!/bin/bash
-#SBATCH -N 1
-#SBATCH -n 1
+#SBATCH --ntasks 16
 #SBATCH -p general
-#SBATCH --gres=gpu:1  # Request GPU
-#SBATCH --mem=32G     # Request memory
 #SBATCH --time=24:00:00  # Request 24 hours
 #SBATCH -o automl_cnn_%J.out
 #SBATCH -e automl_cnn_%J.err
