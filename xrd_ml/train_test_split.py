@@ -211,16 +211,17 @@ def data_by_temp_to_x_y_np_array(data: dict[Tuple[int, int], pd.DataFrame],
         Y (np.ndarray): Y data
         temperatures (np.ndarray): Temperature tuples corresponding to the data (shape n by 2)
     """
+    X_all = np.empty((0,)) 
+    Y_all = np.empty((0,))
+    temperatures = np.empty((0, 2))
+
     for (temp, melt_temp), df in data.items():
         X, Y = get_x_y_as_np_array(df, include_missing_Y_data)
-        if (temp, melt_temp) == VALIDATION_DATA[0]:
-            X_all = X
-            Y_all = Y
-            temperatures = np.array([(temp, melt_temp)] * len(X))
-        else:
-            X_all = np.concatenate((X_all, X))
-            Y_all = np.concatenate((Y_all, Y))
-            temperatures = np.concatenate((temperatures, np.array([(temp, melt_temp)] * len(X))))
+
+        X_all = np.concatenate((X_all, X), axis=0) if X_all.size else X
+        Y_all = np.concatenate((Y_all, Y), axis=0) if Y_all.size else Y
+        temperatures = np.concatenate((temperatures, np.array([(temp, melt_temp)] * len(X))), axis=0) if temperatures.size else np.array([(temp, melt_temp)] * len(X))
+
     return X_all, Y_all, temperatures
 
 if __name__ == "__main__":
