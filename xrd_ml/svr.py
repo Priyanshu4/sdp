@@ -10,27 +10,22 @@ from plotting import (
 )
 from train_test_split import (
     load_train_data, 
-    load_validation_data_by_temp,
+    load_test_data_by_temp,
     get_x_y_as_np_array,
     data_by_temp_to_x_y_np_array)
 
 if __name__ == "__main__":
     print("Loading dataset...")
-    train = load_train_data(suppress_load_errors=True)
-    validation = load_validation_data_by_temp(suppress_load_errors=True)
+    train = load_train_data(suppress_load_errors=True, include_validation_set=True)
+    test = load_test_data_by_temp(suppress_load_errors=True)
     
     train_x, train_y = get_x_y_as_np_array(train)
-    validation_x, validation_y, validation_temps = data_by_temp_to_x_y_np_array(validation)
+    test_x, test_y, test_temps = data_by_temp_to_x_y_np_array(test)
     
     n_samples, n_features = train_x.shape
     print(f"Number of features: {n_features}")
     print(f"Number of training samples: {n_samples}")
-    print(f"Number of validation samples: {validation_x.shape[0]}")
-
-    # NOTE:
-    # In this case, we are treating the validation data as a test set.
-    # We are not using the validation data to tune hyperparameters and are only using it to evaluate the model.
-    # TODO: Load the test data and use it to evaluate the final model. Combine validation into training data.
+    print(f"Number of testing samples: {test_x.shape[0]}")
 
     # scikit-learn uses this value when we set gamma='scale'
     gamma_scale = 1 / (n_features * np.var(train_x))
@@ -70,13 +65,13 @@ if __name__ == "__main__":
     # Get the best model
     best_model = grid_search.best_estimator_
     
-    # Test the best model on the validation data
-    print("\nValidating the best model...")
-    predictions = best_model.predict(validation_x)
-    mse = mean_squared_error(validation_y, predictions)
-    mae = mean_absolute_error(validation_y, predictions)
+    # Test the best model 
+    print("\Testing the best model...")
+    predictions = best_model.predict(test_x)
+    mse = mean_squared_error(test_y, predictions)
+    mae = mean_absolute_error(test_y, predictions)
     rmse = np.sqrt(mse)
-    r2 = r2_score(validation_y, predictions)
+    r2 = r2_score(test_y, predictions)
     
     print(f"Mean Squared Error (MSE): {mse:.6f}")
     print(f"Mean Absolute Error (MAE): {mae:.6f}")
@@ -85,7 +80,7 @@ if __name__ == "__main__":
     
     # Plot predictions vs actual
     plt.figure(figsize=(8, 6))
-    plot_model_predictions_by_temp(validation_y, predictions, validation_temps)
+    plot_model_predictions_by_temp(test_y, predictions, test_temps)
     plt.title('SVR Predictions vs Actual Values (Best Model)')
     save_plot('svr_best_predictions_vs_actual.png')
     
