@@ -2,8 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from plotting import plot_model_predictions_by_temp
 
-from train_test_split import load_train_data, load_validation_data, get_x_y_as_np_array
+from train_test_split import (
+    load_train_data, 
+    load_validation_data, 
+    load_test_data_by_temp,  # test data
+    get_x_y_as_np_array,
+    data_by_temp_to_x_y_np_array   
+)
 
 class XRDRandomForest:
     def __init__(self):
@@ -18,6 +25,16 @@ class XRDRandomForest:
             'n_jobs': -1  # Use all available cores
         }
         self.model = RandomForestRegressor(**self.params)
+        
+    def plot_predictions_by_temp(self, y_true, y_pred, temps):
+        plt.figure(figsize=(8, 6))
+    
+        plot_model_predictions_by_temp(y_true, y_pred, temps)
+    
+        plt.title('Random Forest: Predictions vs Actual Values (Test Data)')
+        plt.grid(True)
+        plt.savefig('random_forest_test_predictions_vs_actual.png')
+        plt.close()
 
     def train(self, X_train, y_train, X_val, y_val):
         """Train the Random Forest model on training data."""
@@ -95,7 +112,6 @@ class XRDRandomForest:
         return results
 
 def main():
-    # Load training and validation data using the team's functions
     print("Loading training data...")
     train_data = load_train_data()
     print("Loading validation data...")
@@ -125,6 +141,42 @@ def main():
     # Evaluate performance across different solid fraction ranges
     range_results = rf_model.evaluate_by_range(X_val, y_val)
     print("\nPerformance by solid fraction range:")
+    for range_name, met in range_results.items():
+        print(f"\nRange {range_name}:")
+        print(f"  MSE: {met['mse']:.6f}")
+        print(f"  MAE: {met['mae']:.6f}")
+        print(f"  Number of samples: {met['n_samples']}")
+        
+    # Load test data instead of validation data
+    print("Loading test data...")
+    test_data_by_temp = load_test_data_by_temp(suppress_load_errors=True)
+    
+    # Convert data to numpy arrays
+    X_train, y_train = get_x_y_as_np_array(train_data)
+    
+    # Convert test data - this returns both the data and the temperature info
+    X_test, y_test, test_temps = data_by_temp_to_x_y_np_array(test_data_by_temp)
+    
+    # Initialize and train the Random Forest model 
+    rf_model = XRDRandomForest()
+    rf_model.train(X_train, y_train, None, None)  
+    
+    # Evaluate on test data
+    print("Evaluating on test data (2000K)...")
+    predictions, metrics = rf_model.evaluate(X_test, y_test)
+    
+    print("\nTest Data Performance:")
+    print(f"Mean Squared Error: {metrics['mse']:.6f}")
+    print(f"Mean Absolute Error: {metrics['mae']:.6f}")
+    print(f"Root Mean Squared Error: {metrics['rmse']:.6f}")
+    print(f"R² Score: {metrics['r2']:.6f}")
+    
+    # Plot predictions by temperature
+    rf_model.plot_predictions_by_temp(y_test, predictions, test_temps)
+    
+    # Evaluate performance across different solid fraction ranges
+    range_results = rf_model.evaluate_by_range(X_test, y_test)
+    print("\nPerformance by solid fraction range on test data:")
     for range_name, met in range_results.items():
         print(f"\nRange {range_name}:")
         print(f"  MSE: {met['mse']:.6f}")
