@@ -24,6 +24,9 @@ def load_validation_data_by_temp(suppress_load_errors=True):
     # Group data by temperature and melting temperature
     by_temp = {}
     for idx, row in data.iterrows():
+        # Default temperature
+        temp_key = (300, 2500)  # Default fallback
+        
         if 'baseTemp' in row and 'meltTemp' in row:
             temp_key = (row['baseTemp'], row['meltTemp'])
         else:
@@ -43,10 +46,9 @@ def load_validation_data_by_temp(suppress_load_errors=True):
                                 except:
                                     pass
                             temp_key = (base_temp, melt_temp)
+                            break
                         except:
-                            temp_key = (300, 2500)  # Default fallback
-            else:
-                temp_key = (300, 2500)  # Default fallback
+                            pass
         
         if temp_key not in by_temp:
             by_temp[temp_key] = []
@@ -66,6 +68,10 @@ def data_by_temp_to_x_y_np_array(data_by_temp):
         all_x.append(x)
         all_y.append(y)
         all_temps.extend([temp_key] * len(y))
+    
+    if not all_x:  # If no data was processed
+        print("Warning: No data with temperature information found")
+        return np.array([]), np.array([]), []
     
     return np.vstack(all_x), np.concatenate(all_y), all_temps
 
@@ -149,7 +155,7 @@ class XRDBoost:
             temps: Temperature information for each data point
         """
         plt.figure(figsize=(8, 6))
-        if temps is not None:
+        if temps is not None and len(temps) == len(y_true):
             plot_model_predictions_by_temp(y_true, y_pred, temps)
         else:
             plot_model_predictions(y_true, y_pred)
@@ -181,15 +187,28 @@ def main():
     print("Loading training data...")
     train_data = load_train_data()
     
-    print("Loading validation data with temperature information...")
-    validation_data_by_temp = load_validation_data_by_temp(suppress_load_errors=True)
+    # Try to load temperature data first
+    try:
+        print("Loading validation data with temperature information...")
+        validation_data_by_temp = load_validation_data_by_temp(suppress_load_errors=True)
+        X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
+        
+        if len(X_val) == 0:
+            raise ValueError("No temperature data could be extracted")
+            
+        print(f"Loaded {len(X_val)} validation samples with temperature information")
+        use_temps = True
+    except Exception as e:
+        print(f"Error processing temperature data: {e}")
+        print("Falling back to regular validation data...")
+        validation_data = load_validation_data(suppress_load_errors=True)
+        X_val, y_val = get_x_y_as_np_array(validation_data)
+        # Create dummy temperature data
+        val_temps = [(300, 2500)] * len(y_val)  # Default values
+        use_temps = False
     
-    # Convert to numpy arrays
+    # Convert train data to numpy arrays
     X_train, y_train = get_x_y_as_np_array(train_data)
-    
-    # Get validation data with temperature information
-    X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
-    print(f"Loaded {len(X_val)} validation samples with temperature information")
     
     # Initialize and train model
     xrd_boost = XRDBoost()
@@ -207,9 +226,13 @@ def main():
     # Plot feature importance
     xrd_boost.plot_feature_importance()
     
-    # Plot predictions with temperature information
-    print("Plotting predictions with temperature coloring...")
-    xrd_boost.plot_predictions(y_val, predictions, val_temps)
+    # Plot predictions with temperature information if available
+    if use_temps:
+        print("Plotting predictions with temperature coloring...")
+        xrd_boost.plot_predictions(y_val, predictions, val_temps)
+    else:
+        print("Plotting predictions without temperature coloring...")
+        xrd_boost.plot_predictions(y_val, predictions)
     
     # Evaluate by range
     range_results = xrd_boost.evaluate_by_range(X_val, y_val)
