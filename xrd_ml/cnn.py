@@ -294,17 +294,6 @@ def main():
     print(f"Mean Absolute Error: {results['mae']}")
     print(f"R² Score: {results['r2']}")
     
-    # Also evaluate with temperature-based visualization
-    print("\nEvaluating model with temperature-based visualization...")
-    validation_data_by_temp = load_validation_data_by_temp(suppress_load_errors=True)
-    eval_x, eval_y, eval_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
-    
-    # Reshape input data for CNN
-    eval_x = eval_x.reshape(-1, 125, 1)
-    
-    # Get performance metrics with temperature-based visualization
-    results_by_temp = xrd_net.evaluate_predictions_by_temps(eval_x, eval_y, eval_temps)
-    
     # Evaluate by range
     print("\nPerformance by solid fraction range:")
     range_results = xrd_net.evaluate_predictions_by_range(X_val, y_val)
@@ -316,22 +305,6 @@ def main():
 
     # Create model summary
     summarize_model(xrd_net.model)
-
-    # Attempt to plot model architecture, but handle potential graphviz error
-    try:
-        tf.keras.utils.plot_model(
-            xrd_net.model,
-            to_file='model_architecture.png',
-            show_shapes=True,
-            show_layer_names=True,
-            rankdir='TB',  # 'TB' for vertical, 'LR' for horizontal
-            expand_nested=True,
-            dpi=96
-        )
-        print("Model architecture saved to 'model_architecture.png'")
-    except ImportError:
-        print("Could not generate model architecture diagram image - graphviz not available.")
-        print("Text-based summary is available in the files.")
 
 if __name__ == "__main__":
     main()
