@@ -117,14 +117,21 @@ def main():
     print("Loading training data...")
     train_data = load_train_data()
     
-    print("Loading validation data with temperature information...")
-    validation_data_by_temp = load_validation_data_by_temp(suppress_load_errors=True)
-    
-    # Convert to numpy arrays
-    X_train, y_train = get_x_y_as_np_array(train_data)
-    
-    # Get validation data with temperature information
-    X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
+    print("Loading validation data...")
+    try:
+        print("Attempting to load validation data with temperature information...")
+        validation_data = load_validation_data_by_temp(suppress_load_errors=True)
+        X_train, y_train = get_x_y_as_np_array(train_data)
+        X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data)
+        print("Successfully loaded validation data with temperature information")
+    except Exception as e:
+        print(f"Error loading temperature data: {e}")
+        print("Falling back to regular validation data...")
+        validation_data = load_validation_data(suppress_load_errors=True)
+        X_train, y_train = get_x_y_as_np_array(train_data)
+        X_val, y_val = get_x_y_as_np_array(validation_data)
+        # Create dummy temperature data
+        val_temps = [(300, 2500)] * len(y_val)  # Default values
     
     # Initialize and train model
     xrd_boost = XRDBoost()
