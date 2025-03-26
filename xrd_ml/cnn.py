@@ -2,7 +2,14 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
 import matplotlib.pyplot as plt
-from train_test_split import load_train_data, load_validation_data, get_x_y_as_np_array
+from train_test_split import (
+    load_train_data, 
+    load_validation_data, 
+    get_x_y_as_np_array,
+    load_validation_data_by_temp,
+    data_by_temp_to_x_y_np_array
+)
+from plotting import plot_model_predictions_by_temp, save_plot
 
 class XRDNet:
     def __init__(self):
@@ -73,7 +80,7 @@ class XRDNet:
             # Early stopping to prevent overfitting
             tf.keras.callbacks.EarlyStopping(
                 monitor='val_loss',
-                patience=10,
+                patience=15, #                             <- from 10 to 15
                 restore_best_weights=True
             ),
             # TensorBoard for visualization
@@ -130,15 +137,31 @@ class XRDNet:
 
     def evaluate_predictions(self, X_test, y_test):
         """
-        Evaluate model predictions
+        Evaluate model predictions with temperature-based coloring
         """
         predictions = self.model.predict(X_test)
         mse = np.mean((y_test - predictions.flatten()) ** 2)
+        rmse = np.sqrt(mse)
         mae = np.mean(np.abs(y_test - predictions.flatten()))
         r2 = 1 - (np.sum((y_test - predictions.flatten()) ** 2) / 
                  np.sum((y_test - np.mean(y_test)) ** 2))
         
-        # Plot predictions vs actual
+        # Get temperature data for validation set
+        validation_data = load_validation_data_by_temp(suppress_load_errors=True)
+        eval_x, eval_y, eval_temps = data_by_temp_to_x_y_np_array(validation_data)
+        eval_x = eval_x.reshape(-1, 125, 1)
+        
+        # Make predictions for this data
+        eval_predictions = self.model.predict(eval_x)
+        
+        # Create temperature-based plot
+        plt.figure(figsize=(8, 6))
+        plot_model_predictions_by_temp(eval_y, eval_predictions.flatten(), eval_temps)
+        plt.title('CNN Predictions vs Actual Values (Best Model)')
+        plt.grid(True)
+        save_plot('cnn_predictions_by_temp.png')
+        
+        # Also create basic plot for compatibility
         plt.figure(figsize=(8, 6))
         plt.scatter(y_test, predictions, alpha=0.5)
         plt.plot([0, 1], [0, 1], 'r--')  # Perfect prediction line
@@ -146,11 +169,12 @@ class XRDNet:
         plt.ylabel('Predicted Solid Fraction')
         plt.title('Predictions vs Actual Values')
         plt.grid(True)
-        plt.savefig('predictions_vs_actual.png')
+        plt.savefig('CNN: predictions_vs_actual.png')
         plt.close()
         
         return {
             'mse': mse,
+            'rmse': rmse,
             'mae': mae,
             'r2': r2,
             'predictions': predictions
@@ -176,6 +200,55 @@ class XRDNet:
                 }
         
         return results
+
+# Create a text-based summary of the model instead of a graph (graphviz is not working)
+def summarize_model(model):
+    """Create a text-based summary of the model architecture"""
+    # Get model summary as a string
+    string_list = []
+    model.summary(line_length=100, print_fn=lambda x: string_list.append(x))
+    model_summary = "\n".join(string_list)
+    
+    # Save to file
+    with open('model_architecture_summary.txt', 'w') as f:
+        f.write(model_summary)
+    
+    # Create a simple text-based diagram
+    with open('model_architecture_diagram.txt', 'w') as f:
+        f.write("CNN Architecture Diagram\n")
+        f.write("======================\n\n")
+        f.write("Input (125, 1)\n")
+        f.write("  ↓\n")
+        
+        # List layers in sequence
+        for layer in model.layers:
+            layer_name = layer.__class__.__name__
+            config = layer.get_config()
+            
+            if 'Conv1D' in layer_name:
+                filters = config['filters']
+                kernel = config['kernel_size']
+                f.write(f"Conv1D ({filters} filters, kernel={kernel})\n")
+            elif 'MaxPooling1D' in layer_name:
+                pool = config['pool_size']
+                f.write(f"MaxPooling1D (pool_size={pool})\n")
+            elif 'Dense' in layer_name:
+                units = config['units']
+                f.write(f"Dense ({units} units)\n")
+            elif 'Dropout' in layer_name:
+                rate = config['rate']
+                f.write(f"Dropout (rate={rate})\n")
+            elif 'BatchNormalization' in layer_name:
+                f.write("BatchNormalization\n")
+            elif 'Flatten' in layer_name:
+                f.write("Flatten\n")
+            
+            f.write("  ↓\n")
+        
+        f.write("Output (1)\n")
+    
+    print("Model summarized in 'model_architecture_summary.txt'")
+    print("Simple model diagram saved to 'model_architecture_diagram.txt'")
 
 def main():
     # Load data using your teammate's functions
@@ -206,6 +279,7 @@ def main():
     results = xrd_net.evaluate_predictions(X_val, y_val)
     print("\nOverall Performance:")
     print(f"Mean Squared Error: {results['mse']}")
+    print(f"Root Mean Squared Error: {results['rmse']}")
     print(f"Mean Absolute Error: {results['mae']}")
     print(f"R² Score: {results['r2']}")
     
@@ -217,6 +291,25 @@ def main():
         print(f"  MSE: {metrics['mse']:.4f}")
         print(f"  MAE: {metrics['mae']:.4f}")
         print(f"  Number of samples: {metrics['n_samples']}")
+
+    # Create model summary
+    summarize_model(xrd_net.model)
+
+    # Try to plot model architecture
+    try:
+        tf.keras.utils.plot_model(
+            xrd_net.model,
+            to_file='model_architecture.png',
+            show_shapes=True,
+            show_layer_names=True,
+            rankdir='TB',  # 'TB' for vertical, 'LR' for horizontal
+            expand_nested=True,
+            dpi=96
+        )
+        print("Model architecture saved to 'model_architecture.png'")
+    except ImportError:
+        print("Could not generate model architecture diagram image - graphviz not available.")
+        print("Text-based summary is available in the files.")
 
 if __name__ == "__main__":
     main()
