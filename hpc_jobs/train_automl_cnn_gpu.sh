@@ -4,9 +4,8 @@
 #SBATCH -p general
 #SBATCH --gres=gpu:1  # Request GPU
 #SBATCH --mem=32G     # Request memory
-#SBATCH --time=24:00:00  # Request 24 hours
+#SBATCH --time=12:00:00 
 #SBATCH -o automl_cnn_gpu_%J.out
-#SBATCH -e automl_cnn_gpu_%J.err
 
 module purge
 
