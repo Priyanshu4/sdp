@@ -149,8 +149,12 @@ def main():
     # Plot feature importance
     xrd_boost.plot_feature_importance()
     
-    # Plot predictions with temperature information
-    xrd_boost.plot_predictions(y_val, predictions, val_temps)
+    # Plot predictions (with temperature information if available)
+    try:
+        xrd_boost.plot_predictions(y_val, predictions, val_temps)
+    except TypeError:
+        print("Warning: plot_predictions doesn't accept temperature data, using basic plotting")
+        xrd_boost.plot_predictions(y_val, predictions)
     
     # Evaluate by range
     range_results = xrd_boost.evaluate_by_range(X_val, y_val)
