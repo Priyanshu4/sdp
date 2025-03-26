@@ -2,10 +2,6 @@ import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 import matplotlib.pyplot as plt
-from plotting import (
-    plot_model_predictions,
-    save_plot
-)
 from train_test_split import (
     load_train_data, 
     load_validation_data,
@@ -81,14 +77,20 @@ class XRDBoost:
         xgb.plot_importance(self.model, importance_type=importance_type)
         plt.title('XGBoost Feature Importance')
         plt.tight_layout()
-        save_plot('xgboost_feature_importance.png')
+        plt.savefig('xgboost_feature_importance.png')
+        plt.close()
 
     def plot_predictions(self, y_true, y_pred):
         """Plot predicted vs actual values"""
         plt.figure(figsize=(8, 6))
-        plot_model_predictions(y_true, y_pred)
+        plt.scatter(y_true, y_pred, alpha=0.5)
+        plt.plot([0, 1], [0, 1], 'r--')
+        plt.xlabel('Actual Solid Fraction')
+        plt.ylabel('Predicted Solid Fraction')
         plt.title('XGBoost: Predictions vs Actual Values')
-        save_plot('xgboost_predictions_vs_actual.png')
+        plt.grid(True)
+        plt.savefig('xgboost_predictions_vs_actual.png')
+        plt.close()
 
     def evaluate_by_range(self, X_test, y_test):
         """Evaluate predictions across different ranges of solid fraction"""
@@ -114,12 +116,15 @@ def main():
     # Load data
     print("Loading training data...")
     train_data = load_train_data()
-    print("Loading validation data...")
-    validation_data = load_validation_data()
+    
+    print("Loading validation data with temperature information...")
+    validation_data_by_temp = load_validation_data_by_temp(suppress_load_errors=True)
     
     # Convert to numpy arrays
     X_train, y_train = get_x_y_as_np_array(train_data)
-    X_val, y_val = get_x_y_as_np_array(validation_data)
+    
+    # Get validation data with temperature information
+    X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
     
     # Initialize and train model
     xrd_boost = XRDBoost()
@@ -137,8 +142,8 @@ def main():
     # Plot feature importance
     xrd_boost.plot_feature_importance()
     
-    # Plot predictions
-    xrd_boost.plot_predictions(y_val, predictions)
+    # Plot predictions with temperature information
+    xrd_boost.plot_predictions(y_val, predictions, val_temps)
     
     # Evaluate by range
     range_results = xrd_boost.evaluate_by_range(X_val, y_val)
