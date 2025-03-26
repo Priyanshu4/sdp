@@ -80,7 +80,7 @@ class XRDNet:
             # Early stopping to prevent overfitting
             tf.keras.callbacks.EarlyStopping(
                 monitor='val_loss',
-                patience=15,
+                patience=15, #                             <- from 10 to 15
                 restore_best_weights=True
             ),
             # TensorBoard for visualization
@@ -137,7 +137,7 @@ class XRDNet:
 
     def evaluate_predictions(self, X_test, y_test):
         """
-        Evaluate model predictions
+        Evaluate model predictions with temperature-based coloring
         """
         predictions = self.model.predict(X_test)
         mse = np.mean((y_test - predictions.flatten()) ** 2)
@@ -146,7 +146,22 @@ class XRDNet:
         r2 = 1 - (np.sum((y_test - predictions.flatten()) ** 2) / 
                  np.sum((y_test - np.mean(y_test)) ** 2))
         
-        # Basic plot - for compatibility with existing code
+        # Get temperature data for validation set
+        validation_data = load_validation_data_by_temp(suppress_load_errors=True)
+        eval_x, eval_y, eval_temps = data_by_temp_to_x_y_np_array(validation_data)
+        eval_x = eval_x.reshape(-1, 125, 1)
+        
+        # Make predictions for this data
+        eval_predictions = self.model.predict(eval_x)
+        
+        # Create temperature-based plot
+        plt.figure(figsize=(8, 6))
+        plot_model_predictions_by_temp(eval_y, eval_predictions.flatten(), eval_temps)
+        plt.title('CNN Predictions vs Actual Values (Best Model)')
+        plt.grid(True)
+        save_plot('cnn_predictions_by_temp.png')
+        
+        # Also create basic plot for compatibility
         plt.figure(figsize=(8, 6))
         plt.scatter(y_test, predictions, alpha=0.5)
         plt.plot([0, 1], [0, 1], 'r--')  # Perfect prediction line
@@ -154,34 +169,8 @@ class XRDNet:
         plt.ylabel('Predicted Solid Fraction')
         plt.title('Predictions vs Actual Values')
         plt.grid(True)
-        plt.savefig('predictions_vs_actual.png')
+        plt.savefig('CNN: predictions_vs_actual.png')
         plt.close()
-        
-        return {
-            'mse': mse,
-            'rmse': rmse,
-            'mae': mae,
-            'r2': r2,
-            'predictions': predictions
-        }
-    
-    def evaluate_predictions_by_temps(self, eval_x, eval_y, eval_temps):
-        """
-        Evaluate model predictions with temperature-based coloring
-        """
-        predictions = self.model.predict(eval_x)
-        mse = np.mean((eval_y - predictions.flatten()) ** 2)
-        rmse = np.sqrt(mse)
-        mae = np.mean(np.abs(eval_y - predictions.flatten()))
-        r2 = 1 - (np.sum((eval_y - predictions.flatten()) ** 2) / 
-                 np.sum((eval_y - np.mean(eval_y)) ** 2))
-        
-        # Plot with temperature-based coloring
-        plt.figure(figsize=(8, 6))
-        plot_model_predictions_by_temp(eval_y, predictions.flatten(), eval_temps)
-        plt.title('CNN Predictions vs Actual Values (Best Model)')
-        plt.grid(True)
-        save_plot('cnn_predictions_by_temp.png')
         
         return {
             'mse': mse,
@@ -285,7 +274,7 @@ def main():
     print("Training model...")
     history = xrd_net.train(X_train, y_train, X_val, y_val)
     
-    # Evaluate using standard method
+    # Evaluate
     print("Evaluating model...")
     results = xrd_net.evaluate_predictions(X_val, y_val)
     print("\nOverall Performance:")
@@ -305,6 +294,22 @@ def main():
 
     # Create model summary
     summarize_model(xrd_net.model)
+
+    # Try to plot model architecture
+    try:
+        tf.keras.utils.plot_model(
+            xrd_net.model,
+            to_file='model_architecture.png',
+            show_shapes=True,
+            show_layer_names=True,
+            rankdir='TB',  # 'TB' for vertical, 'LR' for horizontal
+            expand_nested=True,
+            dpi=96
+        )
+        print("Model architecture saved to 'model_architecture.png'")
+    except ImportError:
+        print("Could not generate model architecture diagram image - graphviz not available.")
+        print("Text-based summary is available in the files.")
 
 if __name__ == "__main__":
     main()
