@@ -2,3 +2,5 @@
 *.pyc
 *.png
 /plots
+autotuner_dir/
+*.h5
