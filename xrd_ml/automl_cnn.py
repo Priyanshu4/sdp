@@ -15,6 +15,7 @@ from train_test_split import (
     data_by_temp_to_x_y_np_array
 )
 from plotting import (
+    PLOTS_FOLDER,
     plot_model_predictions_by_temp,
     save_plot
 )
@@ -91,7 +92,13 @@ def main():
     validation_data = load_validation_data(suppress_load_errors=True)
     X_val, y_val = get_x_y_as_np_array(validation_data)
 
+    # Load the test data and evaluate the best model
+    print("Loading test data...")
+    test_data = load_test_data_by_temp()
+    X_test, Y_test, temps_test = data_by_temp_to_x_y_np_array(test_data)
+
     # Reshape the input data for the CNN: (samples, 125, 1)
+    X_test = X_test.reshape(-1, 125, 1)
     X_train = X_train.reshape(-1, 125, 1)
     X_val = X_val.reshape(-1, 125, 1)
 
@@ -112,17 +119,12 @@ def main():
     print(f"Evaluation results on validation data - Loss (MSE): {results[0]}, MAE: {results[1]}")
 
     # Plot the best model and save to file
-    keras.utils.plot_model(best_model, show_shapes=True, show_layer_names=True)
-    save_plot('automl_cnn_best_model.png')
+    print("Plotting the best model...")
+    plot_file = 'automl_cnn_best_model.png'
+    keras.utils.plot_model(best_model, show_shapes=True, show_layer_names=True, to_file = PLOTS_FOLDER / plot_file)
+    print(f"Plot saved to {plot_file}")
 
-    # Load the test data and evaluate the best model
-    print("Loading test data...")
-    test_data = load_test_data_by_temp()
-    X_test, Y_test, temps_test = data_by_temp_to_x_y_np_array(test_data)
-
-    # Reshape the input data for the CNN: (samples, 125, 1)
-    X_test = X_test.reshape(-1, 125, 1)
-
+    # Evaluate the best model on test data
     print("Evaluation on test data...")
     predictions = best_model.predict(X_test)
     mse = mean_squared_error(Y_test, predictions)
@@ -136,6 +138,7 @@ def main():
     plt.title("Predictions of the Best CNN on Test Data")
     plot_model_predictions_by_temp(Y_test, predictions, temps_test)
     save_plot('automl_cnn_test_predictions.png')
+    print("Plot saved to automl_cnn_test_predictions.png")
 
     # Save the best model to file
     best_model.save('automl_cnn_best_model.h5')
