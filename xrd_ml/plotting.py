@@ -4,6 +4,24 @@ from pathlib import Path
 import numpy as np
 
 PLOTS_FOLDER = Path(__file__).parent.parent / "plots"
+PLOTS_SUBDIRECTORY = None
+
+def set_plots_subdirectory(name: str, add_timestamp: bool = True) -> Path:
+    """
+    Create a subdirectory in the plots folder with the given name.
+    If add_timestamp is True, append the current timestamp to the name.
+
+    Calls to save_plot will save plots in this subdirectory.
+    """
+    global PLOTS_SUBDIRECTORY
+    if add_timestamp:
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        name = f"{name}_{timestamp}"
+
+    PLOTS_SUBDIRECTORY = PLOTS_FOLDER / name
+    PLOTS_SUBDIRECTORY.mkdir(parents=True, exist_ok=True)
+    return PLOTS_SUBDIRECTORY
 
 def plot_xrd_hist(xrd_hist: DataFrame, title = "") -> None:
     """
@@ -121,8 +139,10 @@ def save_plot(plot_name: str) -> None:
     Parameters:
         plot_name (str): Name of the plot file
     """
-    PLOTS_FOLDER.mkdir(parents=True, exist_ok=True)
-    plt.savefig(PLOTS_FOLDER / plot_name)
+    if PLOTS_SUBDIRECTORY is None:
+        plt.savefig(PLOTS_FOLDER / plot_name)
+    else:
+        plt.savefig(PLOTS_SUBDIRECTORY / plot_name)
     plt.close()
 
 
