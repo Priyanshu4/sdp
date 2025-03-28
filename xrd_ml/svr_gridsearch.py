@@ -2,6 +2,7 @@ from sklearn.svm import SVR
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import numpy as np
 import pandas as pd
+from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 from plotting import (
     plot_model_predictions_by_temp,
@@ -12,14 +13,30 @@ from train_test_split import (
     load_validation_data_by_temp,   
     load_test_data_by_temp,
     get_x_y_as_np_array,
-    data_by_temp_to_x_y_np_array
+    data_by_temp_to_x_y_np_array,
+    TRAIN_TEST_SPLITS,
 )
 
 if __name__ == "__main__":
+
+    # Parse command line argument to determine the TRAIN_TEST_SPLIT
+    parser = ArgumentParser(description="Train an SVR model with hyperparameters tuned on validation data.")
+    parser.add_argument(
+        "--train_test_split",
+        type=str,
+        default="original",
+    )
+    args = parser.parse_args()
+    if args.train_test_split not in TRAIN_TEST_SPLITS:
+        raise ValueError(f"Invalid train_test_split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
+    print(f"Using train_test_split: {args.train_test_split}")
+    split = TRAIN_TEST_SPLITS[args.train_test_split]
+
+
     print("Loading dataset...")
-    train = load_train_data(suppress_load_errors=True, include_validation_set=True)
-    validation = load_validation_data_by_temp(suppress_load_errors=True)
-    test = load_test_data_by_temp(suppress_load_errors=True)
+    train = load_train_data(split=split, suppress_load_errors=True, include_validation_set=True)
+    validation = load_validation_data_by_temp(split=split, suppress_load_errors=True)
+    test = load_test_data_by_temp(split=split, suppress_load_errors=True)
     
     # Convert datasets to numpy arrays
     train_x, train_y = get_x_y_as_np_array(train)
