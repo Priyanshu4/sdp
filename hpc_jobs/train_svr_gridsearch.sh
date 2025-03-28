@@ -9,4 +9,4 @@ source ~/miniconda3/etc/profile.d/conda.sh
 
 conda activate xrd_ml
 
-python ../xrd_ml/svr_gridsearch.py
+python ../xrd_ml/svr_gridsearch.py "$@"
