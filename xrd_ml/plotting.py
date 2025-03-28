@@ -23,6 +23,9 @@ def set_plots_subdirectory(name: str, add_timestamp: bool = True) -> Path:
     PLOTS_SUBDIRECTORY.mkdir(parents=True, exist_ok=True)
     return PLOTS_SUBDIRECTORY
 
+def get_plots_subdirectory() -> Path:
+    return PLOTS_SUBDIRECTORY
+
 def plot_xrd_hist(xrd_hist: DataFrame, title = "") -> None:
     """
     Plot XRD histogram from the given DataFrame.

@@ -10,4 +10,4 @@ source ~/miniconda3/etc/profile.d/conda.sh
 
 conda activate xrd_ml
 
-python ../xrd_ml/automl_cnn.py
+python ../xrd_ml/automl_cnn.py "$@"
