@@ -1,12 +1,38 @@
 from load_data import (
     load_processed_data_for_list_of_temps,
     load_processed_data_for_temp_directory)
-from typing import Tuple
+from typing import List, Tuple
 import pandas as pd
 import numpy as np
+from dataclasses import dataclass
 
-# (temp, melt_temp) to use in train_data
-TRAIN_DATA = [
+@dataclass
+class TrainTestSplit:
+    """
+    Class to hold the definition of the training, validation and test data splits.
+    """
+    train_data: List[Tuple[int, int]]
+    validation_data: List[Tuple[int, int]]
+    test_data: List[Tuple[int, int]]
+
+    def __post_init__(self):
+
+        for train_dir in self.train_data:
+            for val_dir in self.validation_data:
+                for test_dir in self.test_data:
+                    if train_dir == val_dir:
+                        raise ValueError(f"Train and validation directories should not have any overlap: {train_dir}")
+                    if train_dir == test_dir:
+                        raise ValueError(f"Train and test directories should not have any overlap: {train_dir}")
+                    if val_dir == test_dir:
+                        raise ValueError(f"Validation and test directories should not have any overlap: {val_dir}")
+
+ALL_2000K = [(x, 2000) for x in range(300, 1300, 100)]
+ALL_2500K = [(x, 2500) for x in range(300, 1300, 100)]
+ALL_3500K = [(x, 3500) for x in range(300, 1200, 100)]
+
+ORIGINAL_SPLIT = TrainTestSplit(
+    train_data=[
     (300, 2500),
     (300, 3500),
     (400, 3500),
@@ -21,46 +47,45 @@ TRAIN_DATA = [
     (1000, 2500),
     (1100, 2500),
     (1100, 3500),
-]
-
-# (temp, melt_temp) to use in validation_data
-VALIDATION_DATA = [
+    ],
+    validation_data=[
     (400, 2500),
     (500, 3500),
     (800, 2500),
     (1000, 3500),
     (1200, 2500),
-]
+    ],
+    test_data=ALL_2000K
+)
 
-# (temp, melt_temp) to use in test_data
-TEST_SET = [
-    (300, 2000),
-    (400, 2000),
-    (500, 2000),
-    (600, 2000),
-    (700, 2000),
-    (800, 2000),
-    (900, 2000),
-    (1000, 2000),
-    (1100, 2000),
-    (1200, 2000),
-]
+BRING_IN_300_2000 = TrainTestSplit(
+    train_data=ORIGINAL_SPLIT.train_data + [(300, 2000)],
+    validation_data=ORIGINAL_SPLIT.validation_data,
+    test_data=[(x, 2000) for x in range(400, 1300, 100)]
+)
 
-for train_dir in TRAIN_DATA:
-    for val_dir in VALIDATION_DATA:
-        for test_dir in TEST_SET:
-            if train_dir == val_dir:
-                raise ValueError(f"Train and validation directories should not have any overlap: {train_dir}")
-            if train_dir == test_dir:
-                raise ValueError(f"Train and test directories should not have any overlap: {train_dir}")
-            if val_dir == test_dir:
-                raise ValueError(f"Validation and test directories should not have any overlap: {val_dir}")
+TRAIN_2000_VAL_2500_TEST_3500 = TrainTestSplit(
+    train_data=ALL_2000K,
+    validation_data=ALL_2500K,
+    test_data=ALL_3500K
+)
 
-def load_train_data(suppress_load_errors = False, include_validation_set = False) -> pd.DataFrame:
+TRAIN_2500_VAL_3500_TEST_2000 = TrainTestSplit(
+    train_data=ALL_2500K,
+    validation_data=ALL_3500K,
+    test_data=ALL_2000K
+)
+
+
+def load_train_data(
+        split: TrainTestSplit = ORIGINAL_SPLIT,
+        suppress_load_errors = False, 
+        include_validation_set = False) -> pd.DataFrame:
     """
     Load the training data.
 
     Parameters:
+        split (TrainTestSplit): The training split to use
         suppress_load_errors (bool): Whether to suppress errors during loading
         include_validation_set (bool): Whether to include the validation set in the training data. 
     
@@ -70,20 +95,23 @@ def load_train_data(suppress_load_errors = False, include_validation_set = False
     See load_processed_data for description of the DataFrame.
     """ 
     if include_validation_set:
-        data = TRAIN_DATA + VALIDATION_DATA
+        data = split.train_data + split.validation_data
     else:
-        data = TRAIN_DATA
+        data = split.train_data
 
     return load_processed_data_for_list_of_temps(
         data, 
         suppress_load_errors = suppress_load_errors)
     
 
-def load_validation_data(suppress_load_errors = False) -> pd.DataFrame:
+def load_validation_data(
+        split: TrainTestSplit = ORIGINAL_SPLIT,
+        suppress_load_errors = False) -> pd.DataFrame:
     """
     Load the validation data.
 
     Parameters:
+        split (TrainTestSplit): The training split to use
         suppress_load_errors (bool): Whether to suppress errors during loading
     
     Returns:
@@ -92,15 +120,18 @@ def load_validation_data(suppress_load_errors = False) -> pd.DataFrame:
     See load_processed_data for description of the DataFrame.
     """ 
     return load_processed_data_for_list_of_temps(
-        VALIDATION_DATA, 
+        split.validation_data, 
         suppress_load_errors = suppress_load_errors)
 
-def load_validation_data_by_temp(suppress_load_errors = False) -> dict[Tuple[int, int], pd.DataFrame]:
+def load_validation_data_by_temp(
+        split: TrainTestSplit = ORIGINAL_SPLIT,
+        suppress_load_errors = False) -> dict[Tuple[int, int], pd.DataFrame]:
     """
     Load the validation data as a dictionary of DataFrames, where the key is the temperature tuple.
     Temperature tuple is (temp, melt_temp).
 
     Parameters:
+        split (TrainTestSplit): The training split to use
         suppress_load_errors (bool): Whether to suppress errors during loading
     
     Returns:
@@ -109,16 +140,19 @@ def load_validation_data_by_temp(suppress_load_errors = False) -> dict[Tuple[int
     See load_processed_data for description of the DataFrame.
     """ 
     validation_data = {}
-    for temp, melt_temp in VALIDATION_DATA:
+    for temp, melt_temp in split.validation_data:
         validation_data[(temp, melt_temp)] = load_processed_data_for_temp_directory(
             temp, melt_temp, suppress_load_errors = suppress_load_errors)
     return validation_data
         
-def load_test_data(suppress_load_errors = False) -> pd.DataFrame:
+def load_test_data(
+        split: TrainTestSplit = ORIGINAL_SPLIT,
+        suppress_load_errors = False) -> pd.DataFrame:
     """
     Load the test data.
 
     Parameters:
+        split (TrainTestSplit): The training split to use
         suppress_load_errors (bool): Whether to suppress errors during loading
     
     Returns:
@@ -127,15 +161,18 @@ def load_test_data(suppress_load_errors = False) -> pd.DataFrame:
     See load_processed_data for description of the DataFrame.
     """ 
     return load_processed_data_for_list_of_temps(
-        TEST_SET, 
+        split.test_data, 
         suppress_load_errors = suppress_load_errors)
 
-def load_test_data_by_temp(suppress_load_errors = False) -> dict[Tuple[int, int], pd.DataFrame]:
+def load_test_data_by_temp(
+        split: TrainTestSplit = ORIGINAL_SPLIT,
+        suppress_load_errors = False) -> dict[Tuple[int, int], pd.DataFrame]:
     """
     Load the test data as a dictionary of DataFrames, where the key is the temperature tuple.
     Temperature tuple is (temp, melt_temp).
 
     Parameters:
+        split (TrainTestSplit): The training split to use
         suppress_load_errors (bool): Whether to suppress errors during loading
     
     Returns:
@@ -144,7 +181,7 @@ def load_test_data_by_temp(suppress_load_errors = False) -> dict[Tuple[int, int]
     See load_processed_data for description of the DataFrame.
     """ 
     test_data = {}
-    for temp, melt_temp in TEST_SET:
+    for temp, melt_temp in split.test_data:
         test_data[(temp, melt_temp)] = load_processed_data_for_temp_directory(
             temp, melt_temp, suppress_load_errors = suppress_load_errors)
     return test_data
