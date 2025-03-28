@@ -160,7 +160,7 @@ def main():
     print("Plot saved to automl_cnn_test_predictions.png")
 
     # Save the best model to file
-    best_model.save('automl_cnn_best_model.h5')
+    best_model.save(get_plots_subdirectory() / 'automl_cnn_best_model.h5')
 
 if __name__ == "__main__":
     main()
