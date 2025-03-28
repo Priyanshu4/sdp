@@ -7,7 +7,9 @@ from tensorflow.keras import layers
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import keras_tuner as kt
 from matplotlib import pyplot as plt
+from argparse import ArgumentParser
 from train_test_split import (
+    TRAIN_TEST_SPLITS,
     load_train_data, 
     load_validation_data,
     load_test_data_by_temp,
@@ -15,8 +17,9 @@ from train_test_split import (
     data_by_temp_to_x_y_np_array
 )
 from plotting import (
-    PLOTS_FOLDER,
     plot_model_predictions_by_temp,
+    set_plots_subdirectory,
+    get_plots_subdirectory,
     save_plot
 )
 
@@ -72,6 +75,22 @@ def build_model(hp):
 
 def main():
 
+    # Parse command line argument to determine the TRAIN_TEST_SPLIT
+    parser = ArgumentParser(description="Train an SVR model with hyperparameters tuned on validation data.")
+    parser.add_argument(
+        "--train_test_split",
+        type=str,
+        default="original",
+    )
+    args = parser.parse_args()
+    if args.train_test_split not in TRAIN_TEST_SPLITS:
+        raise ValueError(f"Invalid train_test_split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
+    print(f"Using train_test_split: {args.train_test_split}")
+    split = TRAIN_TEST_SPLITS[args.train_test_split]
+
+    set_plots_subdirectory(f"automl_cnn_{args.train_test_split}_split", add_timestamp=True)
+
+
     # Initialize Hyperband tuner
     tuner = kt.Hyperband(
         build_model,
@@ -121,7 +140,7 @@ def main():
     # Plot the best model and save to file
     print("Plotting the best model...")
     plot_file = 'automl_cnn_best_model.png'
-    keras.utils.plot_model(best_model, show_shapes=True, show_layer_names=True, to_file = PLOTS_FOLDER / plot_file)
+    keras.utils.plot_model(best_model, show_shapes=True, show_layer_names=True, to_file = get_plots_subdirectory() / plot_file)
     print(f"Plot saved to {plot_file}")
 
     # Evaluate the best model on test data
@@ -141,7 +160,7 @@ def main():
     print("Plot saved to automl_cnn_test_predictions.png")
 
     # Save the best model to file
-    best_model.save('automl_cnn_best_model.h5')
+    best_model.save(get_plots_subdirectory() / 'automl_cnn_best_model.h5')
 
 if __name__ == "__main__":
     main()

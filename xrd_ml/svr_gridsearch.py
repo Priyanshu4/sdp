@@ -1,32 +1,56 @@
 from sklearn.svm import SVR
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import GridSearchCV, KFold
 import numpy as np
 import pandas as pd
+from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 from plotting import (
     plot_model_predictions_by_temp,
+    set_plots_subdirectory,
     save_plot
 )
 from train_test_split import (
-    load_train_data, 
+    load_train_data,
+    load_validation_data_by_temp,   
     load_test_data_by_temp,
     get_x_y_as_np_array,
-    data_by_temp_to_x_y_np_array)
+    data_by_temp_to_x_y_np_array,
+    TRAIN_TEST_SPLITS,
+)
 
 if __name__ == "__main__":
+
+    # Parse command line argument to determine the TRAIN_TEST_SPLIT
+    parser = ArgumentParser(description="Train an SVR model with hyperparameters tuned on validation data.")
+    parser.add_argument(
+        "--train_test_split",
+        type=str,
+        default="original",
+    )
+    args = parser.parse_args()
+    if args.train_test_split not in TRAIN_TEST_SPLITS:
+        raise ValueError(f"Invalid train_test_split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
+    print(f"Using train_test_split: {args.train_test_split}")
+    split = TRAIN_TEST_SPLITS[args.train_test_split]
+
+    set_plots_subdirectory(f"svr_gridsearch_{args.train_test_split}_split", add_timestamp=True)
+
     print("Loading dataset...")
-    train = load_train_data(suppress_load_errors=True, include_validation_set=True)
-    test = load_test_data_by_temp(suppress_load_errors=True)
+    train = load_train_data(split=split, suppress_load_errors=True, include_validation_set=True)
+    validation = load_validation_data_by_temp(split=split, suppress_load_errors=True)
+    test = load_test_data_by_temp(split=split, suppress_load_errors=True)
     
+    # Convert datasets to numpy arrays
     train_x, train_y = get_x_y_as_np_array(train)
+    validation_x, validation_y, validation_temps = data_by_temp_to_x_y_np_array(validation)
     test_x, test_y, test_temps = data_by_temp_to_x_y_np_array(test)
     
     n_samples, n_features = train_x.shape
     print(f"Number of features: {n_features}")
     print(f"Number of training samples: {n_samples}")
+    print(f"Number of validation samples: {validation_x.shape[0]}")
     print(f"Number of testing samples: {test_x.shape[0]}")
-
+    
     # scikit-learn uses this value when we set gamma='scale'
     gamma_scale = 1 / (n_features * np.var(train_x))
     
@@ -36,37 +60,64 @@ if __name__ == "__main__":
         'gamma': sorted([gamma_scale, 0.01, 0.1, 1, 10, 100]),
         'epsilon': [0.001, 0.005, 0.01, 0.1, 1]
     }
-
-    # Create base SVR model
-    svr = SVR(kernel='rbf')
     
-    # Set up K-fold cross-validation
-    cv = KFold(n_splits=5, shuffle=True, random_state=42)
+    # Manual grid search without cross-validation
+    best_score = np.inf
+    best_params = {}
+    best_model = None
+    results_list = []
     
-    # Set up GridSearchCV
-    print("Starting grid search with cross-validation...")
-    grid_search = GridSearchCV(
-        estimator=svr,
-        param_grid=param_grid,
-        cv=cv,
-        scoring='neg_mean_squared_error',
-        verbose=2,
-        n_jobs=-1  # Use all available cores
-    )
+    print("Starting grid search (no cross-validation...)")
+    for C in param_grid['C']:
+        for gamma in param_grid['gamma']:
+            for epsilon in param_grid['epsilon']:
+                # Create and train the model
+                model = SVR(kernel='rbf', C=C, gamma=gamma, epsilon=epsilon)
+                model.fit(train_x, train_y)
+                
+                # Evaluate on the validation set
+                preds = model.predict(validation_x)
+                mse = mean_squared_error(validation_y, preds)
+                
+                # Save the result for this parameter combination
+                results_list.append({
+                    'param_C': C,
+                    'param_gamma': gamma,
+                    'param_epsilon': epsilon,
+                    'validation_mse': mse
+                })
+                
+                # Track the best model
+                if mse < best_score:
+                    best_score = mse
+                    best_params = {'C': C, 'gamma': gamma, 'epsilon': epsilon}
+                    best_model = model
     
-    # Fit the grid search to the data
-    grid_search.fit(train_x, train_y)
-    
-    # Print best parameters and score
     print("\nBest parameters found:")
-    print(grid_search.best_params_)
-    print(f"Best cross-validation score: {-grid_search.best_score_}")
+    print(best_params)
+    print(f"Best Score (Validation MSE): {best_score:.6f}")
+
+    # get validation r^2 score
+    print("\nEvaluating the best model on the validation set...")
+    validation_preds = best_model.predict(validation_x)
+    validation_mse = mean_squared_error(validation_y, validation_preds)
+    validation_mae = mean_absolute_error(validation_y, validation_preds)
+    validation_rmse = np.sqrt(validation_mse)
+    validation_r2 = r2_score(validation_y, validation_preds)
     
-    # Get the best model
-    best_model = grid_search.best_estimator_
+    print(f"Validation Mean Squared Error (MSE): {validation_mse:.6f}")
+    print(f"Validation Mean Absolute Error (MAE): {validation_mae:.6f}")
+    print(f"Validation Root Mean Squared Error (RMSE): {validation_rmse:.6f}")
+    print(f"Validation R^2 Score: {validation_r2:.6f}")
     
+    # Plot validation predictions vs actual
+    plt.figure(figsize=(8, 6))
+    plot_model_predictions_by_temp(validation_y, validation_preds, validation_temps)
+    plt.title('SVR Predictions vs Actual Values (Validation Set)')
+    save_plot('svr_gridsearch_validation_predictions_vs_actual.png')
+
     # Test the best model 
-    print("\Testing the best model...")
+    print("\nTesting the best model on the test set...")
     predictions = best_model.predict(test_x)
     mse = mean_squared_error(test_y, predictions)
     mae = mean_absolute_error(test_y, predictions)
@@ -76,38 +127,37 @@ if __name__ == "__main__":
     print(f"Mean Squared Error (MSE): {mse:.6f}")
     print(f"Mean Absolute Error (MAE): {mae:.6f}")
     print(f"Root Mean Squared Error (RMSE): {rmse:.6f}")
-    print(f"R^2 Score (r2_score): {r2:.6f}")
+    print(f"R^2 Score: {r2:.6f}")
     
     # Plot predictions vs actual
     plt.figure(figsize=(8, 6))
     plot_model_predictions_by_temp(test_y, predictions, test_temps)
     plt.title('SVR Predictions vs Actual Values (Best Model)')
-    save_plot('svr_best_predictions_vs_actual.png')
+    save_plot('svr_gridsearch_best_predictions_vs_actual.png')
     
     # Create results DataFrame for all tested parameters
-    results = pd.DataFrame(grid_search.cv_results_)
+    results_df = pd.DataFrame(results_list)
     
-
-    # Group by C and gamma, find best epsilon for each combination
-    grouped_results = results.groupby(['param_C', 'param_gamma']).apply(
-        lambda x: x.loc[x['mean_test_score'].idxmax()]
+    # Group by C and gamma, and select the best epsilon for each combination
+    grouped_results = results_df.groupby(['param_C', 'param_gamma']).apply(
+        lambda x: x.loc[x['validation_mse'].idxmin()]
     ).reset_index(drop=True)
     
-    # Pivot table for heatmap
+    # Pivot table for heatmap (using validation MSE)
     pivot_table = grouped_results.pivot_table(
-        values='mean_test_score',
+        values='validation_mse',
         index='param_C', 
         columns='param_gamma'
     )
     
-    # Plot heatmap
+    # Plot heatmap of the validation MSE
     plt.figure()
-    heatmap = plt.imshow(-pivot_table, cmap='viridis', aspect='auto')
-    plt.colorbar(heatmap, label='Negative MSE')
+    heatmap = plt.imshow(pivot_table, cmap='viridis', aspect='auto')
+    plt.colorbar(heatmap, label='Validation MSE')
     plt.title('Hyperparameter Performance (C vs gamma)')
     plt.xlabel('gamma')
     plt.ylabel('C')
-    plt.xticks(range(len(pivot_table.columns)), [round(x, 2) for x  in pivot_table.columns])
+    plt.xticks(range(len(pivot_table.columns)), [round(x, 2) for x in pivot_table.columns])
     plt.yticks(range(len(pivot_table.index)), pivot_table.index)
     save_plot('svr_gridsearch.png')
     
