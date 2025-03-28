@@ -33,7 +33,7 @@ if __name__ == "__main__":
     print(f"Using train_test_split: {args.train_test_split}")
     split = TRAIN_TEST_SPLITS[args.train_test_split]
 
-    set_plots_subdirectory(f"svr_gridsearch_{split}_split", add_timestamp=True)
+    set_plots_subdirectory(f"svr_gridsearch_{args.train_test_split}_split", add_timestamp=True)
 
     print("Loading dataset...")
     train = load_train_data(split=split, suppress_load_errors=True, include_validation_set=True)

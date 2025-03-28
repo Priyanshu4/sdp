@@ -88,7 +88,7 @@ def main():
     print(f"Using train_test_split: {args.train_test_split}")
     split = TRAIN_TEST_SPLITS[args.train_test_split]
 
-    set_plots_subdirectory(f"automl_cnn_{split}_split", add_timestamp=True)
+    set_plots_subdirectory(f"automl_cnn_{args.train_test_split}_split", add_timestamp=True)
 
 
     # Initialize Hyperband tuner
