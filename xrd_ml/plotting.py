@@ -89,6 +89,20 @@ def plot_solid_fraction_distribution(processed_data: DataFrame,
     plt.ylabel("Frequency")
     plt.title("Solid Fraction Distribution in Dataset")
 
+def plot_solid_fraction_distribution_from_np_array(solid_fractions: np.ndarray,
+                                                   bins: int) -> None:
+    """
+    Plot the solid fraction distribution from a numpy array.
+
+    Parameters:
+        solid_fractions (np.ndarray): Array of solid fractions
+        bins (int): Number of bins for the histogram
+    """
+    plt.hist(solid_fractions, bins=bins)
+    plt.xlabel("Solid Fraction")
+    plt.ylabel("Frequency")
+    plt.title("Solid Fraction Distribution in Dataset")
+
 def plot_model_predictions(true_solid_fractions, predicted_solid_fractions) -> None:
     """
     Plot the predicted solid fractions against the actual solid fractions.
