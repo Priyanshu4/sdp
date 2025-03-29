@@ -104,16 +104,16 @@ def main():
 
     # Load and preprocess the data
     print("Loading training data...")
-    train_data = load_train_data(suppress_load_errors=True)
+    train_data = load_train_data(split=split, suppress_load_errors=True)
     X_train, y_train = get_x_y_as_np_array(train_data)
 
     print("Loading validation data...")
-    validation_data = load_validation_data(suppress_load_errors=True)
+    validation_data = load_validation_data(split=split, suppress_load_errors=True)
     X_val, y_val = get_x_y_as_np_array(validation_data)
 
     # Load the test data and evaluate the best model
     print("Loading test data...")
-    test_data = load_test_data_by_temp()
+    test_data = load_test_data_by_temp(split=split)
     X_test, Y_test, temps_test = data_by_temp_to_x_y_np_array(test_data)
 
     # Reshape the input data for the CNN: (samples, 125, 1)
