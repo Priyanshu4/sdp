@@ -2,6 +2,7 @@ from pandas import DataFrame
 import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
+from datetime import datetime
 
 PLOTS_FOLDER = Path(__file__).parent.parent / "plots"
 PLOTS_SUBDIRECTORY = None
@@ -15,7 +16,6 @@ def set_plots_subdirectory(name: str, add_timestamp: bool = True) -> Path:
     """
     global PLOTS_SUBDIRECTORY
     if add_timestamp:
-        from datetime import datetime
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         name = f"{name}_{timestamp}"
 
