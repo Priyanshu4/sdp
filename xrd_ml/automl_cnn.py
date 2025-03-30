@@ -130,9 +130,9 @@ def main():
 
     if args.balance:
         print("Resampling the training dataset to balance it...")
-        X_train, Y_train = resample_dataset_from_binned_solid_fractions(
+        X_train, y_train = resample_dataset_from_binned_solid_fractions(
             data=X_train,
-            solid_fractions=Y_train,
+            solid_fractions=y_train,
             n_bins=20,
             n_samples_per_bin=1000,
             oversample=True,
