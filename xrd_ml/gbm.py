@@ -12,8 +12,10 @@ from train_test_split import (
     load_train_data, 
     load_validation_data,
     load_validation_data_by_temp,
+    load_test_data_by_temp,
     get_x_y_as_np_array,
-    data_by_temp_to_x_y_np_array
+    data_by_temp_to_x_y_np_array,
+    TRAIN_TEST_SPLITS
 )
 from plotting import plot_solid_fraction_distribution
 
@@ -145,33 +147,68 @@ class XRDBoost:
         return results
 
 def main():
-    # Load data
-    print("Loading training data...")
-    train_data = load_train_data(suppress_load_errors=True)
+
+    # Use the train_2500_val_3500_test_2000 split, to use the old one, set old = 1 and comment everything before the if
+    old = 0
     
-    print("Loading validation data with temperature information...")
-    validation_data_by_temp = load_validation_data_by_temp(suppress_load_errors=True)
-    
-    # Convert to numpy arrays
-    X_train, y_train = get_x_y_as_np_array(train_data)
-    
-    # Get validation data with temperature information
-    X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
-    print(f"Loaded {len(X_val)} validation samples with temperature information")
-    
-    # Print some information about temperatures
-    unique_temps = np.unique(val_temps, axis=0)
-    print(f"Found {len(unique_temps)} unique temperature combinations in validation data:")
-    for temp in unique_temps:
-        count = np.sum(np.all(val_temps == temp, axis=1))
-        print(f"  {temp[0]} K, Melting Temp {temp[1]} K: {count} samples")
-    
-    # Initialize and train model
-    xrd_boost = XRDBoost()
-    model = xrd_boost.train(X_train, y_train, X_val, y_val)
-    
-    # Evaluate performance
-    predictions, metrics = xrd_boost.evaluate(X_val, y_val)
+    if old == 1:   
+        # Load data
+        print("Loading training data...")
+        train_data = load_train_data(suppress_load_errors=True)
+        
+        print("Loading validation data with temperature information...")
+        validation_data_by_temp = load_validation_data_by_temp(suppress_load_errors=True)
+        
+        # Convert to numpy arrays
+        X_train, y_train = get_x_y_as_np_array(train_data)
+        
+        # Get validation data with temperature information
+        X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
+        print(f"Loaded {len(X_val)} validation samples with temperature information")
+        
+        # Initialize and train model
+        xrd_boost = XRDBoost()
+        model = xrd_boost.train(X_train, y_train, X_val, y_val)
+        
+        # Evaluate performance
+        predictions, metrics = xrd_boost.evaluate(X_val, y_val)
+        
+        eval_y = y_val
+        eval_temps = val_temps
+    else:
+        # Use the train_2500_val_3500_test_2000 split
+        split = TRAIN_TEST_SPLITS["train_2500_val_3500_test_2000"]
+        
+        # Load combined training and validation data
+        print("Loading training data (including validation)...")
+        train_data = load_train_data(split=split, suppress_load_errors=True, include_validation_set=True)
+        
+        # Load test data (2000K)
+        print("Loading test data...")
+        test_data_by_temp = load_test_data_by_temp(split=split, suppress_load_errors=True)
+        
+        # Convert to numpy arrays
+        X_train, y_train = get_x_y_as_np_array(train_data)
+        X_test, y_test, test_temps = data_by_temp_to_x_y_np_array(test_data_by_temp)
+        
+        # Use a small subset of train data for validation during training
+        # (just for early stopping)
+        train_idx = np.random.choice(len(X_train), int(0.9*len(X_train)), replace=False)
+        val_idx = np.array([i for i in range(len(X_train)) if i not in train_idx])
+        X_val = X_train[val_idx]
+        y_val = y_train[val_idx]
+        X_train_subset = X_train[train_idx]
+        y_train_subset = y_train[train_idx]
+        
+        # Initialize and train model
+        xrd_boost = XRDBoost()
+        model = xrd_boost.train(X_train_subset, y_train_subset, X_val, y_val)
+        
+        # Evaluate on test data
+        predictions, metrics = xrd_boost.evaluate(X_test, y_test)
+        
+        eval_y = y_test
+        eval_temps = test_temps
     
     print("\nOverall Performance:")
     print(f"Mean Squared Error: {metrics['mse']:.6f}")
@@ -184,10 +221,10 @@ def main():
     
     # Plot predictions with temperature information
     print("Plotting predictions with temperature coloring...")
-    xrd_boost.plot_predictions(y_val, predictions, val_temps)
+    xrd_boost.plot_predictions(eval_y, predictions, eval_temps)
     
     # Evaluate by range
-    range_results = xrd_boost.evaluate_by_range(X_val, y_val)
+    range_results = xrd_boost.evaluate_by_range(X_test if old == 0 else X_val, eval_y)
     print("\nPerformance by solid fraction range:")
     for range_name, metrics in range_results.items():
         print(f"\nRange {range_name}:")
