@@ -173,6 +173,8 @@ def perform_hyperparameter_tuning(X_train, y_train, cv=5, quick=False):
     Returns:
         best_params: Dictionary of best parameters
     """
+    import time
+    
     print("Performing hyperparameter tuning with GridSearchCV...")
     
     if quick:
@@ -195,6 +197,17 @@ def perform_hyperparameter_tuning(X_train, y_train, cv=5, quick=False):
             'n_estimators': [500, 1000]
         }
     
+    # Calculate total fits
+    total_fits = len(param_grid['learning_rate']) * len(param_grid['max_depth'])
+    if 'min_child_weight' in param_grid:
+        total_fits *= len(param_grid['min_child_weight'])
+    total_fits *= len(param_grid['subsample']) * len(param_grid['colsample_bytree']) * len(param_grid['n_estimators'])
+    total_fits *= cv
+    
+    print(f"Will perform {total_fits} model fits. Estimated time: {total_fits * 2:.1f} seconds (~{(total_fits * 2)/60:.1f} minutes)")
+    print("Starting at:", time.strftime("%H:%M:%S"))
+    start_time = time.time()
+    
     # Create XGBoost model
     xgb_model = XGBRegressor(
         objective='reg:squarederror',
@@ -208,11 +221,17 @@ def perform_hyperparameter_tuning(X_train, y_train, cv=5, quick=False):
         param_grid,
         cv=cv,
         scoring='r2',
-        verbose=1
+        verbose=2  # Increased verbosity
     )
     
     # Fit the grid search
     grid_search.fit(X_train, y_train)
+    
+    end_time = time.time()
+    elapsed = end_time - start_time
+    
+    print(f"\nTuning completed in {elapsed:.2f} seconds ({elapsed/60:.2f} minutes)")
+    print("Finished at:", time.strftime("%H:%M:%S"))
     
     # Print the best parameters and score
     print("\nBest parameters found by GridSearchCV:")
@@ -221,7 +240,6 @@ def perform_hyperparameter_tuning(X_train, y_train, cv=5, quick=False):
     print(f"Best cross-validation R² score: {grid_search.best_score_:.6f}")
     
     return grid_search.best_params_
-
 
 def main():
     """
