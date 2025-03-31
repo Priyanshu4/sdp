@@ -2,6 +2,7 @@ import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 from plotting import (
     plot_model_predictions,
     plot_model_predictions_by_temp,
@@ -15,6 +16,10 @@ from train_test_split import (
     data_by_temp_to_x_y_np_array
 )
 from plotting import plot_solid_fraction_distribution
+
+# Create plots directory if it doesn't exist
+plots_dir = Path(__file__).parent.parent / "plots"
+plots_dir.mkdir(parents=True, exist_ok=True)
 
 class XRDBoost:
     def __init__(self):
@@ -84,7 +89,11 @@ class XRDBoost:
         xgb.plot_importance(self.model, importance_type=importance_type)
         plt.title('XGBoost Feature Importance')
         plt.tight_layout()
-        save_plot('xgboost_feature_importance.png')
+        
+        # Save plot directly instead of using the helper function
+        plt.savefig(plots_dir / 'xgboost_feature_importance.png')
+        plt.close()
+        print(f"Feature importance plot saved to {plots_dir / 'xgboost_feature_importance.png'}")
 
     def plot_predictions(self, y_true, y_pred, temps=None):
         """
@@ -96,12 +105,24 @@ class XRDBoost:
             temps: Temperature information for each data point
         """
         plt.figure(figsize=(8, 6))
-        if temps is not None and len(temps) > 0:
+        
+        # Add explicit grid
+        plt.grid(True)
+        
+        # Check if temps is valid
+        if temps is not None and len(temps) > 0 and len(temps) == len(y_true):
+            print(f"Plotting with temperatures. Found {len(np.unique(temps, axis=0))} unique temperature combinations.")
             plot_model_predictions_by_temp(y_true, y_pred, temps)
         else:
+            print("Plotting without temperatures - using regular scatter plot.")
             plot_model_predictions(y_true, y_pred)
+            
         plt.title('XGBoost Predictions vs Actual Values (Best Model)')
-        save_plot('xgboost_predictions_vs_actual.png')
+        
+        # Save plot directly instead of using the helper function
+        plt.savefig(plots_dir / 'xgboost_predictions_vs_actual.png')
+        plt.close()
+        print(f"Predictions plot saved to {plots_dir / 'xgboost_predictions_vs_actual.png'}")
 
     def evaluate_by_range(self, X_test, y_test):
         """Evaluate predictions across different ranges of solid fraction"""
@@ -137,6 +158,13 @@ def main():
     # Get validation data with temperature information
     X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
     print(f"Loaded {len(X_val)} validation samples with temperature information")
+    
+    # Print some information about temperatures
+    unique_temps = np.unique(val_temps, axis=0)
+    print(f"Found {len(unique_temps)} unique temperature combinations in validation data:")
+    for temp in unique_temps:
+        count = np.sum(np.all(val_temps == temp, axis=1))
+        print(f"  {temp[0]} K, Melting Temp {temp[1]} K: {count} samples")
     
     # Initialize and train model
     xrd_boost = XRDBoost()
