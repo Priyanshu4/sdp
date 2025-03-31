@@ -174,6 +174,10 @@ def main():
     
     To run with the 300K/2000K in training
     python gbm.py --mode test --split bring_in_300_2000
+
+    Flipped Data Split:
+    python gbm.py --mode test --split train_2000_val_2500_test_3500
+    
     To try different learning rates:
     python gbm.py --mode test --split bring_in_300_2000 --lr 0.005
     """
