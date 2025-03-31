@@ -2,7 +2,6 @@ import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 from plotting import (
     plot_model_predictions,
     plot_model_predictions_by_temp,
@@ -11,69 +10,11 @@ from plotting import (
 from train_test_split import (
     load_train_data, 
     load_validation_data,
-    get_x_y_as_np_array
+    load_validation_data_by_temp,
+    get_x_y_as_np_array,
+    data_by_temp_to_x_y_np_array
 )
 from plotting import plot_solid_fraction_distribution
-
-# Define the temperature-aware functions
-def load_validation_data_by_temp(suppress_load_errors=True):
-    """Load validation data and organize it by temperature"""
-    from train_test_split import load_validation_data
-    data = load_validation_data(suppress_load_errors=suppress_load_errors)
-    
-    # Group data by temperature and melting temperature
-    by_temp = {}
-    for idx, row in data.iterrows():
-        # Default temperature
-        temp_key = (300, 2500)  # Default fallback
-        
-        if 'baseTemp' in row and 'meltTemp' in row:
-            temp_key = (row['baseTemp'], row['meltTemp'])
-        else:
-            # Extract temperature from filename if available
-            filename = row.get('filename', '')
-            if isinstance(filename, str):
-                parts = filename.split('/')
-                for part in parts:
-                    if part.startswith('0'):  # Folder with temperature info
-                        try:
-                            base_temp = int(part.split('-')[0].strip('0'))
-                            melt_temp = 2500  # Default
-                            if 'Kelvin/' in filename:
-                                melt_folder = filename.split('Kelvin/')[1].split('/')[0]
-                                try:
-                                    melt_temp = int(melt_folder.split('-')[0])
-                                except:
-                                    pass
-                            temp_key = (base_temp, melt_temp)
-                            break
-                        except:
-                            pass
-        
-        if temp_key not in by_temp:
-            by_temp[temp_key] = []
-        by_temp[temp_key].append(row)
-    
-    return by_temp
-
-def data_by_temp_to_x_y_np_array(data_by_temp):
-    """Convert temperature-organized data to numpy arrays for ML"""
-    all_x = []
-    all_y = []
-    all_temps = []
-    
-    for temp_key, rows in data_by_temp.items():
-        df = pd.DataFrame(rows)
-        x, y = get_x_y_as_np_array(df)
-        all_x.append(x)
-        all_y.append(y)
-        all_temps.extend([temp_key] * len(y))
-    
-    if not all_x:  # If no data was processed
-        print("Warning: No data with temperature information found")
-        return np.array([]), np.array([]), []
-    
-    return np.vstack(all_x), np.concatenate(all_y), all_temps
 
 class XRDBoost:
     def __init__(self):
@@ -155,7 +96,7 @@ class XRDBoost:
             temps: Temperature information for each data point
         """
         plt.figure(figsize=(8, 6))
-        if temps is not None and len(temps) == len(y_true):
+        if temps is not None and len(temps) > 0:
             plot_model_predictions_by_temp(y_true, y_pred, temps)
         else:
             plot_model_predictions(y_true, y_pred)
@@ -185,30 +126,17 @@ class XRDBoost:
 def main():
     # Load data
     print("Loading training data...")
-    train_data = load_train_data()
+    train_data = load_train_data(suppress_load_errors=True)
     
-    # Try to load temperature data first
-    try:
-        print("Loading validation data with temperature information...")
-        validation_data_by_temp = load_validation_data_by_temp(suppress_load_errors=True)
-        X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
-        
-        if len(X_val) == 0:
-            raise ValueError("No temperature data could be extracted")
-            
-        print(f"Loaded {len(X_val)} validation samples with temperature information")
-        use_temps = True
-    except Exception as e:
-        print(f"Error processing temperature data: {e}")
-        print("Falling back to regular validation data...")
-        validation_data = load_validation_data(suppress_load_errors=True)
-        X_val, y_val = get_x_y_as_np_array(validation_data)
-        # Create dummy temperature data
-        val_temps = [(300, 2500)] * len(y_val)  # Default values
-        use_temps = False
+    print("Loading validation data with temperature information...")
+    validation_data_by_temp = load_validation_data_by_temp(suppress_load_errors=True)
     
-    # Convert train data to numpy arrays
+    # Convert to numpy arrays
     X_train, y_train = get_x_y_as_np_array(train_data)
+    
+    # Get validation data with temperature information
+    X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
+    print(f"Loaded {len(X_val)} validation samples with temperature information")
     
     # Initialize and train model
     xrd_boost = XRDBoost()
@@ -226,13 +154,9 @@ def main():
     # Plot feature importance
     xrd_boost.plot_feature_importance()
     
-    # Plot predictions with temperature information if available
-    if use_temps:
-        print("Plotting predictions with temperature coloring...")
-        xrd_boost.plot_predictions(y_val, predictions, val_temps)
-    else:
-        print("Plotting predictions without temperature coloring...")
-        xrd_boost.plot_predictions(y_val, predictions)
+    # Plot predictions with temperature information
+    print("Plotting predictions with temperature coloring...")
+    xrd_boost.plot_predictions(y_val, predictions, val_temps)
     
     # Evaluate by range
     range_results = xrd_boost.evaluate_by_range(X_val, y_val)
