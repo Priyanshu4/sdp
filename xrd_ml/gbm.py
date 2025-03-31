@@ -1,5 +1,7 @@
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.model_selection import GridSearchCV, train_test_split
+from xgboost import XGBRegressor
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
@@ -157,6 +159,70 @@ class XRDBoost:
         
         return results
 
+
+def perform_hyperparameter_tuning(X_train, y_train, cv=5, quick=False):
+    """
+    Perform hyperparameter tuning using GridSearchCV
+    
+    Parameters:
+        X_train: Training features
+        y_train: Training targets
+        cv: Number of cross-validation folds
+        quick: If True, use a smaller parameter grid for faster tuning
+        
+    Returns:
+        best_params: Dictionary of best parameters
+    """
+    print("Performing hyperparameter tuning with GridSearchCV...")
+    
+    if quick:
+        # Smaller parameter grid for faster tuning
+        param_grid = {
+            'learning_rate': [0.01, 0.05],
+            'max_depth': [3, 6],
+            'subsample': [0.8],
+            'colsample_bytree': [0.8],
+            'n_estimators': [500]
+        }
+    else:
+        # More comprehensive parameter grid
+        param_grid = {
+            'learning_rate': [0.001, 0.01, 0.05],
+            'max_depth': [3, 5, 7],
+            'min_child_weight': [1, 3],
+            'subsample': [0.7, 0.9],
+            'colsample_bytree': [0.7, 0.9],
+            'n_estimators': [500, 1000]
+        }
+    
+    # Create XGBoost model
+    xgb_model = XGBRegressor(
+        objective='reg:squarederror',
+        random_state=42,
+        n_jobs=-1  # Use all available cores
+    )
+    
+    # Set up GridSearchCV
+    grid_search = GridSearchCV(
+        xgb_model,
+        param_grid,
+        cv=cv,
+        scoring='r2',
+        verbose=1
+    )
+    
+    # Fit the grid search
+    grid_search.fit(X_train, y_train)
+    
+    # Print the best parameters and score
+    print("\nBest parameters found by GridSearchCV:")
+    for param, value in grid_search.best_params_.items():
+        print(f"  {param}: {value}")
+    print(f"Best cross-validation R² score: {grid_search.best_score_:.6f}")
+    
+    return grid_search.best_params_
+
+
 def main():
     """
     --split: Choose which train/test split to use (any split from TRAIN_TEST_SPLITS)​
@@ -169,6 +235,10 @@ def main():
 
     --boost-rounds: Set the number of boosting rounds, 1000 defualt
     
+    --tune: Perform hyperparameter tuning with GridSearchCV
+    
+    --quick-tune: Perform faster hyperparameter tuning with a smaller grid
+    
     To run on the 2000K test data:
     python gbm.py --mode test --split train_2500_val_3500_test_2000
     
@@ -180,6 +250,12 @@ def main():
     
     To try different learning rates:
     python gbm.py --mode test --split bring_in_300_2000 --lr 0.005
+    
+    To perform hyperparameter tuning:
+    python gbm.py --mode test --split train_2500_val_3500_test_2000 --tune
+    
+    To perform quick hyperparameter tuning:
+    python gbm.py --mode test --split train_2500_val_3500_test_2000 --tune --quick-tune
     """
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train and evaluate XGBoost model for XRD analysis.")
@@ -190,6 +266,9 @@ def main():
     parser.add_argument("--lr", type=float, default=0.01, help="Learning rate (default: 0.01)")
     parser.add_argument("--depth", type=int, default=6, help="Maximum tree depth (default: 6)")
     parser.add_argument("--boost-rounds", type=int, default=1000, help="Number of boosting rounds (default: 1000)")
+    parser.add_argument("--tune", action="store_true", help="Perform hyperparameter tuning with GridSearchCV")
+    parser.add_argument("--quick-tune", action="store_true", help="Use a smaller parameter grid for faster tuning")
+    parser.add_argument("--resample", action="store_true", help="Perform data resampling to balance training data")
     args = parser.parse_args()
     
     # Use specified split
@@ -198,16 +277,6 @@ def main():
     print(f"  Training data: {split.train_data}")
     print(f"  Validation data: {split.validation_data}")
     print(f"  Test data: {split.test_data}")
-    
-    # Set model parameters
-    params = {
-        'learning_rate': args.lr,
-        'max_depth': args.depth
-    }
-    
-    # Initialize model
-    xrd_boost = XRDBoost(params=params)
-    xrd_boost.num_boost_rounds = args.boost_rounds
     
     if args.mode == "test":
         # TEST MODE: Train on combined train+val data, evaluate on test data
@@ -227,24 +296,113 @@ def main():
         print(f"Training data: {len(X_train)} samples")
         print(f"Test data: {len(X_test)} samples")
         
+        # Data resampling if requested
+        if args.resample:
+            print("Performing data resampling...")
+            
+            # Create bins for solid fraction
+            bins = np.linspace(0, 1, 11)  # 10 bins from 0 to 1
+            bin_indices = np.digitize(y_train, bins) - 1  # -1 to start from 0
+            
+            # Count samples in each bin
+            bin_counts = np.bincount(bin_indices, minlength=len(bins)-1)
+            print("Distribution of training data across solid fraction bins:")
+            for i, count in enumerate(bin_counts):
+                bin_start = bins[i]
+                bin_end = bins[i+1]
+                print(f"  Bin {i} ({bin_start:.1f}-{bin_end:.1f}): {count} samples")
+            
+            # Define target count per bin (oversample underrepresented bins)
+            target_count = max(bin_counts)
+            
+            # Resample data
+            X_resampled = []
+            y_resampled = []
+            
+            for i in range(len(bins)-1):
+                bin_mask = (bin_indices == i)
+                X_bin = X_train[bin_mask]
+                y_bin = y_train[bin_mask]
+                
+                if len(X_bin) > 0:
+                    # Calculate how many times to repeat samples
+                    repeat_count = max(1, int(target_count / len(X_bin)))
+                    
+                    # Repeat samples
+                    for _ in range(repeat_count):
+                        X_resampled.append(X_bin)
+                        y_resampled.append(y_bin)
+                    
+                    # Add remaining samples if needed
+                    remaining = target_count - (len(X_bin) * repeat_count)
+                    if remaining > 0:
+                        indices = np.random.choice(len(X_bin), remaining, replace=False)
+                        X_resampled.append(X_bin[indices])
+                        y_resampled.append(y_bin[indices])
+            
+            # Combine resampled data
+            X_train = np.vstack(X_resampled)
+            y_train = np.concatenate(y_resampled)
+            
+            print(f"After resampling: {len(X_train)} training samples")
+            
+            # Verify distribution after resampling
+            bin_indices_resampled = np.digitize(y_train, bins) - 1
+            bin_counts_resampled = np.bincount(bin_indices_resampled, minlength=len(bins)-1)
+            print("Distribution after resampling:")
+            for i, count in enumerate(bin_counts_resampled):
+                bin_start = bins[i]
+                bin_end = bins[i+1]
+                print(f"  Bin {i} ({bin_start:.1f}-{bin_end:.1f}): {count} samples")
+        
+        # Hyperparameter tuning if requested
+        if args.tune:
+            best_params = perform_hyperparameter_tuning(
+                X_train, y_train, cv=5, quick=args.quick_tune
+            )
+            
+            # Set parameters from tuning
+            xgb_params = {
+                'objective': 'reg:squarederror',
+                'learning_rate': best_params['learning_rate'],
+                'max_depth': best_params['max_depth'],
+                'min_child_weight': best_params.get('min_child_weight', 1),
+                'subsample': best_params['subsample'],
+                'colsample_bytree': best_params['colsample_bytree'],
+                'random_state': 42
+            }
+            
+            boost_rounds = best_params['n_estimators']
+        else:
+            # Set parameters from command line
+            xgb_params = {
+                'learning_rate': args.lr,
+                'max_depth': args.depth
+            }
+            
+            boost_rounds = args.boost_rounds
+        
+        # Initialize model with parameters
+        xrd_boost = XRDBoost(params=xgb_params)
+        xrd_boost.num_boost_rounds = boost_rounds
+        
         # Use a small portion of the training data as validation for early stopping
-        train_idx = np.random.choice(len(X_train), int(0.9*len(X_train)), replace=False)
-        val_idx = np.array([i for i in range(len(X_train)) if i not in train_idx])
-        X_val = X_train[val_idx]
-        y_val = y_train[val_idx]
-        X_train_subset = X_train[train_idx]
-        y_train_subset = y_train[train_idx]
+        X_train_subset, X_val_subset, y_train_subset, y_val_subset = train_test_split(
+            X_train, y_train, test_size=0.1, random_state=42
+        )
         
         # Train model
-        model = xrd_boost.train(X_train_subset, y_train_subset, X_val, y_val)
+        model = xrd_boost.train(X_train_subset, y_train_subset, X_val_subset, y_val_subset)
         
         # Evaluate on test data
         predictions, metrics = xrd_boost.evaluate(X_test, y_test)
         
         # Create descriptive filenames based on the split and mode
-        plot_title = f"XGBoost: {args.split} Split (Test Mode)"
-        feature_importance_filename = f"xgboost_{args.split}_test_feature_importance.png"
-        predictions_filename = f"xgboost_{args.split}_test_predictions.png"
+        suffix = "_tuned" if args.tune else ""
+        suffix += "_resampled" if args.resample else ""
+        plot_title = f"XGBoost: {args.split} Split (Test Mode){suffix}"
+        feature_importance_filename = f"xgboost_{args.split}_test{suffix}_feature_importance.png"
+        predictions_filename = f"xgboost_{args.split}_test{suffix}_predictions.png"
         
         print(f"\nTest Set Performance ({args.split}):")
         print(f"Mean Squared Error: {metrics['mse']:.6f}")
@@ -294,6 +452,37 @@ def main():
             count = np.sum(np.all(val_temps == temp, axis=1))
             print(f"  {temp[0]} K, Melting Temp {temp[1]} K: {count} samples")
         
+        # Hyperparameter tuning if requested
+        if args.tune:
+            best_params = perform_hyperparameter_tuning(
+                X_train, y_train, cv=5, quick=args.quick_tune
+            )
+            
+            # Set parameters from tuning
+            xgb_params = {
+                'objective': 'reg:squarederror',
+                'learning_rate': best_params['learning_rate'],
+                'max_depth': best_params['max_depth'],
+                'min_child_weight': best_params.get('min_child_weight', 1),
+                'subsample': best_params['subsample'],
+                'colsample_bytree': best_params['colsample_bytree'],
+                'random_state': 42
+            }
+            
+            boost_rounds = best_params['n_estimators']
+        else:
+            # Set parameters from command line
+            xgb_params = {
+                'learning_rate': args.lr,
+                'max_depth': args.depth
+            }
+            
+            boost_rounds = args.boost_rounds
+        
+        # Initialize model with parameters
+        xrd_boost = XRDBoost(params=xgb_params)
+        xrd_boost.num_boost_rounds = boost_rounds
+        
         # Train model
         model = xrd_boost.train(X_train, y_train, X_val, y_val)
         
@@ -301,9 +490,10 @@ def main():
         predictions, metrics = xrd_boost.evaluate(X_val, y_val)
         
         # Create descriptive filenames based on the split and mode
-        plot_title = f"XGBoost: {args.split} Split (Validation Mode)"
-        feature_importance_filename = f"xgboost_{args.split}_val_feature_importance.png"
-        predictions_filename = f"xgboost_{args.split}_val_predictions.png"
+        suffix = "_tuned" if args.tune else ""
+        plot_title = f"XGBoost: {args.split} Split (Validation Mode){suffix}"
+        feature_importance_filename = f"xgboost_{args.split}_val{suffix}_feature_importance.png"
+        predictions_filename = f"xgboost_{args.split}_val{suffix}_predictions.png"
         
         print("\nValidation Performance:")
         print(f"Mean Squared Error: {metrics['mse']:.6f}")
