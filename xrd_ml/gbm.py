@@ -238,6 +238,8 @@ def main():
     --tune: Perform hyperparameter tuning with GridSearchCV
     
     --quick-tune: Perform faster hyperparameter tuning with a smaller grid
+
+    --resample: helps the model better generalize across the entire range of solid fractions
     
     To run on the 2000K test data:
     python gbm.py --mode test --split train_2500_val_3500_test_2000
