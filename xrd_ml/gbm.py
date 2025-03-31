@@ -158,6 +158,25 @@ class XRDBoost:
         return results
 
 def main():
+    """
+    --split: Choose which train/test split to use (any split from TRAIN_TEST_SPLITS)​
+
+    --mode: Select "validation" or "test" mode​
+
+    --lr: Set the learning rate, 0.01 defualt​
+
+    --depth: Set the maximum tree depth, 6 default​
+
+    --boost-rounds: Set the number of boosting rounds, 1000 defualt
+    
+    To run on the 2000K test data:
+    python gbm.py --mode test --split train_2500_val_3500_test_2000
+    
+    To run with the 300K/2000K in training
+    python gbm.py --mode test --split bring_in_300_2000
+    To try different learning rates:
+    python gbm.py --mode test --split bring_in_300_2000 --lr 0.005
+    """
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train and evaluate XGBoost model for XRD analysis.")
     parser.add_argument("--split", type=str, default="original", choices=TRAIN_TEST_SPLITS.keys(), 
