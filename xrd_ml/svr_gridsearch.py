@@ -66,8 +66,8 @@ if __name__ == "__main__":
             data=train_x,
             solid_fractions=train_y,
             n_bins=20,
-            n_samples_per_bin=1000,
-            oversample=True,
+            bin_undersampling_threshold=0.8,
+            oversample=False,
             random_seed=42
         )
         print(f"Number of training samples after balancing: {train_x.shape[0]}")
