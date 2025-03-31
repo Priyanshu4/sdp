@@ -2,6 +2,7 @@ import xgboost as xgb
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 from pathlib import Path
 from plotting import (
     plot_model_predictions,
@@ -24,9 +25,11 @@ plots_dir = Path(__file__).parent.parent / "plots"
 plots_dir.mkdir(parents=True, exist_ok=True)
 
 class XRDBoost:
-    def __init__(self):
+    def __init__(self, params=None):
         self.model = None
-        self.num_boost_rounds = 1000  # Separate parameter to avoid warning
+        self.num_boost_rounds = 1000
+        
+        # Default parameters
         self.params = {
             'objective': 'reg:squarederror',
             'max_depth': 6,
@@ -39,6 +42,10 @@ class XRDBoost:
             'reg_lambda': 1,
             'random_state': 42
         }
+        
+        # Update with custom parameters if provided
+        if params:
+            self.params.update(params)
 
     def train(self, X_train, y_train, X_val, y_val):
         """Train the XGBoost model with early stopping"""
@@ -54,7 +61,7 @@ class XRDBoost:
         self.model = xgb.train(
             self.params,
             dtrain,
-            num_boost_round=self.num_boost_rounds,  # Use separate parameter
+            num_boost_round=self.num_boost_rounds,
             evals=evallist,
             early_stopping_rounds=50,
             verbose_eval=100
@@ -82,22 +89,21 @@ class XRDBoost:
         
         return predictions, metrics
 
-    def plot_feature_importance(self, feature_names=None):
+    def plot_feature_importance(self, output_name='xgboost_feature_importance.png'):
         """Plot feature importance scores"""
         importance_type = 'weight'  # Can also use 'gain' or 'cover'
-        scores = self.model.get_score(importance_type=importance_type)
         
         plt.figure(figsize=(10, 6))
         xgb.plot_importance(self.model, importance_type=importance_type)
         plt.title('XGBoost Feature Importance')
         plt.tight_layout()
         
-        # Save plot directly instead of using the helper function
-        plt.savefig(plots_dir / 'xgboost_feature_importance.png')
+        # Save plot
+        plt.savefig(plots_dir / output_name)
         plt.close()
-        print(f"Feature importance plot saved to {plots_dir / 'xgboost_feature_importance.png'}")
+        print(f"Feature importance plot saved to {plots_dir / output_name}")
 
-    def plot_predictions(self, y_true, y_pred, temps=None):
+    def plot_predictions(self, y_true, y_pred, temps=None, output_name='xgboost_predictions.png', title=None):
         """
         Plot predicted vs actual values with temperature information
         
@@ -105,6 +111,8 @@ class XRDBoost:
             y_true: True values
             y_pred: Predicted values
             temps: Temperature information for each data point
+            output_name: Name of the output file
+            title: Plot title
         """
         plt.figure(figsize=(8, 6))
         
@@ -119,12 +127,15 @@ class XRDBoost:
             print("Plotting without temperatures - using regular scatter plot.")
             plot_model_predictions(y_true, y_pred)
             
-        plt.title('XGBoost Predictions vs Actual Values (Best Model)')
+        if title:
+            plt.title(title)
+        else:
+            plt.title('XGBoost Predictions vs Actual Values')
         
-        # Save plot directly instead of using the helper function
-        plt.savefig(plots_dir / 'xgboost_predictions_vs_actual.png')
+        # Save plot
+        plt.savefig(plots_dir / output_name)
         plt.close()
-        print(f"Predictions plot saved to {plots_dir / 'xgboost_predictions_vs_actual.png'}")
+        print(f"Predictions plot saved to {plots_dir / output_name}")
 
     def evaluate_by_range(self, X_test, y_test):
         """Evaluate predictions across different ranges of solid fraction"""
@@ -147,43 +158,42 @@ class XRDBoost:
         return results
 
 def main():
-
-    # Use the train_2500_val_3500_test_2000 split, to use the old one, set old = 1 and comment everything before the if
-    old = 0
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Train and evaluate XGBoost model for XRD analysis.")
+    parser.add_argument("--split", type=str, default="original", choices=TRAIN_TEST_SPLITS.keys(), 
+                        help="Training split to use (default: original)")
+    parser.add_argument("--mode", type=str, default="validation", choices=["validation", "test"],
+                        help="Evaluation mode: 'validation' or 'test' (default: validation)")
+    parser.add_argument("--lr", type=float, default=0.01, help="Learning rate (default: 0.01)")
+    parser.add_argument("--depth", type=int, default=6, help="Maximum tree depth (default: 6)")
+    parser.add_argument("--boost-rounds", type=int, default=1000, help="Number of boosting rounds (default: 1000)")
+    args = parser.parse_args()
     
-    if old == 1:   
+    # Use specified split
+    split = TRAIN_TEST_SPLITS[args.split]
+    print(f"Using {args.split} split:")
+    print(f"  Training data: {split.train_data}")
+    print(f"  Validation data: {split.validation_data}")
+    print(f"  Test data: {split.test_data}")
+    
+    # Set model parameters
+    params = {
+        'learning_rate': args.lr,
+        'max_depth': args.depth
+    }
+    
+    # Initialize model
+    xrd_boost = XRDBoost(params=params)
+    xrd_boost.num_boost_rounds = args.boost_rounds
+    
+    if args.mode == "test":
+        # TEST MODE: Train on combined train+val data, evaluate on test data
+        print("Using full training data (including validation) and test dataset for final evaluation.")
+        
         # Load data
-        print("Loading training data...")
-        train_data = load_train_data(suppress_load_errors=True)
-        
-        print("Loading validation data with temperature information...")
-        validation_data_by_temp = load_validation_data_by_temp(suppress_load_errors=True)
-        
-        # Convert to numpy arrays
-        X_train, y_train = get_x_y_as_np_array(train_data)
-        
-        # Get validation data with temperature information
-        X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
-        print(f"Loaded {len(X_val)} validation samples with temperature information")
-        
-        # Initialize and train model
-        xrd_boost = XRDBoost()
-        model = xrd_boost.train(X_train, y_train, X_val, y_val)
-        
-        # Evaluate performance
-        predictions, metrics = xrd_boost.evaluate(X_val, y_val)
-        
-        eval_y = y_val
-        eval_temps = val_temps
-    else:
-        # Use the train_2500_val_3500_test_2000 split
-        split = TRAIN_TEST_SPLITS["train_2500_val_3500_test_2000"]
-        
-        # Load combined training and validation data
         print("Loading training data (including validation)...")
         train_data = load_train_data(split=split, suppress_load_errors=True, include_validation_set=True)
         
-        # Load test data (2000K)
         print("Loading test data...")
         test_data_by_temp = load_test_data_by_temp(split=split, suppress_load_errors=True)
         
@@ -191,8 +201,10 @@ def main():
         X_train, y_train = get_x_y_as_np_array(train_data)
         X_test, y_test, test_temps = data_by_temp_to_x_y_np_array(test_data_by_temp)
         
-        # Use a small subset of train data for validation during training
-        # (just for early stopping)
+        print(f"Training data: {len(X_train)} samples")
+        print(f"Test data: {len(X_test)} samples")
+        
+        # Use a small portion of the training data as validation for early stopping
         train_idx = np.random.choice(len(X_train), int(0.9*len(X_train)), replace=False)
         val_idx = np.array([i for i in range(len(X_train)) if i not in train_idx])
         X_val = X_train[val_idx]
@@ -200,37 +212,98 @@ def main():
         X_train_subset = X_train[train_idx]
         y_train_subset = y_train[train_idx]
         
-        # Initialize and train model
-        xrd_boost = XRDBoost()
+        # Train model
         model = xrd_boost.train(X_train_subset, y_train_subset, X_val, y_val)
         
         # Evaluate on test data
         predictions, metrics = xrd_boost.evaluate(X_test, y_test)
         
-        eval_y = y_test
-        eval_temps = test_temps
-    
-    print("\nOverall Performance:")
-    print(f"Mean Squared Error: {metrics['mse']:.6f}")
-    print(f"Mean Absolute Error: {metrics['mae']:.6f}")
-    print(f"Root Mean Squared Error: {metrics['rmse']:.6f}")
-    print(f"R² Score: {metrics['r2']:.6f}")
-    
-    # Plot feature importance
-    xrd_boost.plot_feature_importance()
-    
-    # Plot predictions with temperature information
-    print("Plotting predictions with temperature coloring...")
-    xrd_boost.plot_predictions(eval_y, predictions, eval_temps)
-    
-    # Evaluate by range
-    range_results = xrd_boost.evaluate_by_range(X_test if old == 0 else X_val, eval_y)
-    print("\nPerformance by solid fraction range:")
-    for range_name, metrics in range_results.items():
-        print(f"\nRange {range_name}:")
-        print(f"  MSE: {metrics['mse']:.6f}")
-        print(f"  MAE: {metrics['mae']:.6f}")
-        print(f"  Number of samples: {metrics['n_samples']}")
+        # Create descriptive filenames based on the split and mode
+        plot_title = f"XGBoost: {args.split} Split (Test Mode)"
+        feature_importance_filename = f"xgboost_{args.split}_test_feature_importance.png"
+        predictions_filename = f"xgboost_{args.split}_test_predictions.png"
+        
+        print(f"\nTest Set Performance ({args.split}):")
+        print(f"Mean Squared Error: {metrics['mse']:.6f}")
+        print(f"Mean Absolute Error: {metrics['mae']:.6f}")
+        print(f"Root Mean Squared Error: {metrics['rmse']:.6f}")
+        print(f"R² Score: {metrics['r2']:.6f}")
+        
+        # Plot feature importance
+        xrd_boost.plot_feature_importance(output_name=feature_importance_filename)
+        
+        # Plot predictions
+        xrd_boost.plot_predictions(y_test, predictions, test_temps, 
+                                  output_name=predictions_filename,
+                                  title=plot_title)
+        
+        # Evaluate by range
+        range_results = xrd_boost.evaluate_by_range(X_test, y_test)
+        print("\nTest Performance by solid fraction range:")
+        for range_name, metrics in range_results.items():
+            print(f"\nRange {range_name}:")
+            print(f"  MSE: {metrics['mse']:.6f}")
+            print(f"  MAE: {metrics['mae']:.6f}")
+            print(f"  Number of samples: {metrics['n_samples']}")
+            
+    else:
+        # VALIDATION MODE: Train on train data, evaluate on validation data
+        print("Using train data and validation dataset for evaluation.")
+        
+        # Load data
+        print("Loading training data...")
+        train_data = load_train_data(split=split, suppress_load_errors=True)
+        
+        print("Loading validation data with temperature information...")
+        validation_data_by_temp = load_validation_data_by_temp(split=split, suppress_load_errors=True)
+        
+        # Convert to numpy arrays
+        X_train, y_train = get_x_y_as_np_array(train_data)
+        X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
+        
+        print(f"Training data: {len(X_train)} samples")
+        print(f"Validation data: {len(X_val)} samples")
+        
+        # Print temperature information
+        unique_temps = np.unique(val_temps, axis=0)
+        print(f"Found {len(unique_temps)} unique temperature combinations in validation data:")
+        for temp in unique_temps:
+            count = np.sum(np.all(val_temps == temp, axis=1))
+            print(f"  {temp[0]} K, Melting Temp {temp[1]} K: {count} samples")
+        
+        # Train model
+        model = xrd_boost.train(X_train, y_train, X_val, y_val)
+        
+        # Evaluate performance
+        predictions, metrics = xrd_boost.evaluate(X_val, y_val)
+        
+        # Create descriptive filenames based on the split and mode
+        plot_title = f"XGBoost: {args.split} Split (Validation Mode)"
+        feature_importance_filename = f"xgboost_{args.split}_val_feature_importance.png"
+        predictions_filename = f"xgboost_{args.split}_val_predictions.png"
+        
+        print("\nValidation Performance:")
+        print(f"Mean Squared Error: {metrics['mse']:.6f}")
+        print(f"Mean Absolute Error: {metrics['mae']:.6f}")
+        print(f"Root Mean Squared Error: {metrics['rmse']:.6f}")
+        print(f"R² Score: {metrics['r2']:.6f}")
+        
+        # Plot feature importance
+        xrd_boost.plot_feature_importance(output_name=feature_importance_filename)
+        
+        # Plot predictions
+        xrd_boost.plot_predictions(y_val, predictions, val_temps,
+                                  output_name=predictions_filename,
+                                  title=plot_title)
+        
+        # Evaluate by range
+        range_results = xrd_boost.evaluate_by_range(X_val, y_val)
+        print("\nValidation Performance by solid fraction range:")
+        for range_name, metrics in range_results.items():
+            print(f"\nRange {range_name}:")
+            print(f"  MSE: {metrics['mse']:.6f}")
+            print(f"  MAE: {metrics['mae']:.6f}")
+            print(f"  Number of samples: {metrics['n_samples']}")
 
 if __name__ == "__main__":
     main()
