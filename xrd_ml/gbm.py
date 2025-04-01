@@ -317,80 +317,80 @@ def main():
         print(f"Test data: {len(X_test)} samples")
         
         # Data resampling if requested
-    if args.resample:
-        print("Performing data resampling...")
-        
-        # Create bins for solid fraction with finer granularity
-        num_bins = 20  
-        bins = np.linspace(0, 1, num_bins+1)
-        bin_indices = np.digitize(y_train, bins) - 1
-        bin_indices = np.clip(bin_indices, 0, len(bins)-2)
-        
-        # Count samples in each bin
-        bin_counts = np.bincount(bin_indices, minlength=len(bins)-1)
-        print("Distribution of training data across solid fraction bins:")
-        for i in range(len(bins)-1):
-            bin_start = bins[i]
-            bin_end = bins[i+1]
-            print(f"  Bin {i} ({bin_start:.1f}-{bin_end:.1f}): {bin_counts[i]} samples")
-        
-        # Calculate median count as target threshold
-        non_empty_bins = bin_counts[bin_counts > 0]
-        target_count = np.median(non_empty_bins) 
-        print(f"Target sample count per bin: {target_count}")
-        
-        # Hybrid approach: under-sample majority bins, slightly oversample minority bins
-        X_resampled = []
-        y_resampled = []
-        
-        for i in range(len(bins)-1):
-            bin_mask = (bin_indices == i)
-            X_bin = X_train[bin_mask]
-            y_bin = y_train[bin_mask]
+        if args.resample:
+            print("Performing data resampling...")
             
-            if len(X_bin) > 0:
-                if len(X_bin) > target_count * 1.5:
-                    # Under-sample bins with 50% more than target
-                    keep_count = int(target_count * 1.2)  # Keep 20% more than target
-                    indices = np.random.choice(len(X_bin), keep_count, replace=False)
-                    X_resampled.append(X_bin[indices])
-                    y_resampled.append(y_bin[indices])
-                elif len(X_bin) < target_count * 0.5:
-                    # Oversample bins with less than 50% of target
-                    boost_factor = min(2.0, target_count / len(X_bin))  # Don't oversample more than 2x
-                    repeat_count = int(boost_factor)
-                    
-                    # Add full repeats
-                    for _ in range(repeat_count):
-                        X_resampled.append(X_bin)
-                        y_resampled.append(y_bin)
-                    
-                    # Add partial repeat if needed
-                    remaining = int((boost_factor - repeat_count) * len(X_bin))
-                    if remaining > 0:
-                        indices = np.random.choice(len(X_bin), remaining, replace=False)
+            # Create bins for solid fraction with finer granularity
+            num_bins = 20  
+            bins = np.linspace(0, 1, num_bins+1)
+            bin_indices = np.digitize(y_train, bins) - 1
+            bin_indices = np.clip(bin_indices, 0, len(bins)-2)
+            
+            # Count samples in each bin
+            bin_counts = np.bincount(bin_indices, minlength=len(bins)-1)
+            print("Distribution of training data across solid fraction bins:")
+            for i in range(len(bins)-1):
+                bin_start = bins[i]
+                bin_end = bins[i+1]
+                print(f"  Bin {i} ({bin_start:.1f}-{bin_end:.1f}): {bin_counts[i]} samples")
+            
+            # Calculate median count as target threshold
+            non_empty_bins = bin_counts[bin_counts > 0]
+            target_count = np.median(non_empty_bins) 
+            print(f"Target sample count per bin: {target_count}")
+            
+            # Hybrid approach: under-sample majority bins, slightly oversample minority bins
+            X_resampled = []
+            y_resampled = []
+            
+            for i in range(len(bins)-1):
+                bin_mask = (bin_indices == i)
+                X_bin = X_train[bin_mask]
+                y_bin = y_train[bin_mask]
+                
+                if len(X_bin) > 0:
+                    if len(X_bin) > target_count * 1.5:
+                        # Under-sample bins with 50% more than target
+                        keep_count = int(target_count * 1.2)  # Keep 20% more than target
+                        indices = np.random.choice(len(X_bin), keep_count, replace=False)
                         X_resampled.append(X_bin[indices])
                         y_resampled.append(y_bin[indices])
-                else:
-                    # Keep bins that are close to target
-                    X_resampled.append(X_bin)
-                    y_resampled.append(y_bin)
-        
-        # Combine resampled data
-        X_train = np.vstack(X_resampled)
-        y_train = np.concatenate(y_resampled)
-        
-        print(f"After resampling: {len(X_train)} training samples")
-        
-        # Verify distribution
-        bin_indices_resampled = np.digitize(y_train, bins) - 1
-        bin_indices_resampled = np.clip(bin_indices_resampled, 0, len(bins)-2)
-        bin_counts_resampled = np.bincount(bin_indices_resampled, minlength=len(bins)-1)
-        print("Distribution after resampling:")
-        for i in range(len(bins)-1):
-            bin_start = bins[i]
-            bin_end = bins[i+1]
-            print(f"  Bin {i} ({bin_start:.1f}-{bin_end:.1f}): {bin_counts_resampled[i]} samples")
+                    elif len(X_bin) < target_count * 0.5:
+                        # Oversample bins with less than 50% of target
+                        boost_factor = min(2.0, target_count / len(X_bin))  # Don't oversample more than 2x
+                        repeat_count = int(boost_factor)
+                        
+                        # Add full repeats
+                        for _ in range(repeat_count):
+                            X_resampled.append(X_bin)
+                            y_resampled.append(y_bin)
+                        
+                        # Add partial repeat if needed
+                        remaining = int((boost_factor - repeat_count) * len(X_bin))
+                        if remaining > 0:
+                            indices = np.random.choice(len(X_bin), remaining, replace=False)
+                            X_resampled.append(X_bin[indices])
+                            y_resampled.append(y_bin[indices])
+                    else:
+                        # Keep bins that are close to target
+                        X_resampled.append(X_bin)
+                        y_resampled.append(y_bin)
+            
+            # Combine resampled data
+            X_train = np.vstack(X_resampled)
+            y_train = np.concatenate(y_resampled)
+            
+            print(f"After resampling: {len(X_train)} training samples")
+            
+            # Verify distribution
+            bin_indices_resampled = np.digitize(y_train, bins) - 1
+            bin_indices_resampled = np.clip(bin_indices_resampled, 0, len(bins)-2)
+            bin_counts_resampled = np.bincount(bin_indices_resampled, minlength=len(bins)-1)
+            print("Distribution after resampling:")
+            for i in range(len(bins)-1):
+                bin_start = bins[i]
+                bin_end = bins[i+1]
+                print(f"  Bin {i} ({bin_start:.1f}-{bin_end:.1f}): {bin_counts_resampled[i]} samples")
 
         # Hyperparameter tuning if requested
         if args.tune:
