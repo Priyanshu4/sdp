@@ -130,15 +130,15 @@ def main():
 
     if args.balance:
         print("Resampling the training dataset to balance it...")
-        X_train, y_train = resample_dataset_from_binned_solid_fractions(
-            data=X_train,
-            solid_fractions=y_train,
+        train_x, train_y = resample_dataset_from_binned_solid_fractions(
+            data=train_x,
+            solid_fractions=train_y,
             n_bins=20,
-            n_samples_per_bin=1000,
-            oversample=True,
+            bin_undersampling_threshold=0.8,
+            oversample=False,
             random_seed=42
         )
-        print(f"Number of training samples after balancing: {X_train.shape[0]}")
+        print(f"Number of training samples after balancing: {train_x.shape[0]}")
     
     # Start the hyperparameter search using Hyperband
     tuner.search(X_train, y_train, 
