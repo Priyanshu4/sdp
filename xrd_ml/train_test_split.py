@@ -76,11 +76,18 @@ TRAIN_2500_VAL_3500_TEST_2000 = TrainTestSplit(
     test_data=ALL_2000K
 )
 
+TRAIN_2500_VAL_2000_TEST_3500 = TrainTestSplit(
+    train_data=ALL_2500K,
+    validation_data=ALL_2000K,
+    test_data=ALL_3500K
+)
+
 TRAIN_TEST_SPLITS = {
     "original": ORIGINAL_SPLIT,
     "bring_in_300_2000": BRING_IN_300_2000,
     "train_2000_val_2500_test_3500": TRAIN_2000_VAL_2500_TEST_3500,
     "train_2500_val_3500_test_2000": TRAIN_2500_VAL_3500_TEST_2000,
+    "train_2500_val_2000_test_3500": TRAIN_2500_VAL_2000_TEST_3500,
 }
 
 

@@ -22,6 +22,7 @@ from plotting import (
     get_plots_subdirectory,
     save_plot
 )
+from imbalance import resample_dataset_from_binned_solid_fractions
 
 
 def build_model(hp):
@@ -82,14 +83,21 @@ def main():
         type=str,
         default="original",
     )
+    parser.add_argument(
+        "--balance",
+        action="store_true",
+        help="Whether to balance the train dataset with resampling."
+    )
     args = parser.parse_args()
     if args.train_test_split not in TRAIN_TEST_SPLITS:
         raise ValueError(f"Invalid train_test_split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
     print(f"Using train_test_split: {args.train_test_split}")
     split = TRAIN_TEST_SPLITS[args.train_test_split]
 
-    set_plots_subdirectory(f"automl_cnn_{args.train_test_split}_split", add_timestamp=True)
-
+    name = f"automl_cnn_{args.train_test_split}_split"
+    if args.balance:
+        name += "_balanced"
+    set_plots_subdirectory(name, add_timestamp=True)
 
     # Initialize Hyperband tuner
     tuner = kt.Hyperband(
@@ -98,22 +106,21 @@ def main():
         max_epochs=50,   # maximum epochs per model
         factor=3,        # reduction factor for resource allocation
         directory='autotuner_dir',
-        project_name='xrdnet_tuning'
+        project_name=name,
     )
-
 
     # Load and preprocess the data
     print("Loading training data...")
-    train_data = load_train_data(suppress_load_errors=True)
+    train_data = load_train_data(split=split, suppress_load_errors=True)
     X_train, y_train = get_x_y_as_np_array(train_data)
 
     print("Loading validation data...")
-    validation_data = load_validation_data(suppress_load_errors=True)
+    validation_data = load_validation_data(split=split, suppress_load_errors=True)
     X_val, y_val = get_x_y_as_np_array(validation_data)
 
     # Load the test data and evaluate the best model
     print("Loading test data...")
-    test_data = load_test_data_by_temp()
+    test_data = load_test_data_by_temp(split=split)
     X_test, Y_test, temps_test = data_by_temp_to_x_y_np_array(test_data)
 
     # Reshape the input data for the CNN: (samples, 125, 1)
@@ -121,6 +128,18 @@ def main():
     X_train = X_train.reshape(-1, 125, 1)
     X_val = X_val.reshape(-1, 125, 1)
 
+    if args.balance:
+        print("Resampling the training dataset to balance it...")
+        X_train, y_train = resample_dataset_from_binned_solid_fractions(
+            data=X_train,
+            solid_fractions=y_train,
+            n_bins=20,
+            n_samples_per_bin=1000,
+            oversample=True,
+            random_seed=42
+        )
+        print(f"Number of training samples after balancing: {X_train.shape[0]}")
+    
     # Start the hyperparameter search using Hyperband
     tuner.search(X_train, y_train, 
                 validation_data=(X_val, y_val), 

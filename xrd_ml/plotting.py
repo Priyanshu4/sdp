@@ -2,6 +2,7 @@ from pandas import DataFrame
 import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
+from datetime import datetime
 
 PLOTS_FOLDER = Path(__file__).parent.parent / "plots"
 PLOTS_SUBDIRECTORY = None
@@ -15,7 +16,6 @@ def set_plots_subdirectory(name: str, add_timestamp: bool = True) -> Path:
     """
     global PLOTS_SUBDIRECTORY
     if add_timestamp:
-        from datetime import datetime
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         name = f"{name}_{timestamp}"
 
@@ -85,6 +85,20 @@ def plot_solid_fraction_distribution(processed_data: DataFrame,
 
     processed_data.hist(column="solidFrac", bins=bins)
 
+    plt.xlabel("Solid Fraction")
+    plt.ylabel("Frequency")
+    plt.title("Solid Fraction Distribution in Dataset")
+
+def plot_solid_fraction_distribution_from_np_array(solid_fractions: np.ndarray,
+                                                   bins: int) -> None:
+    """
+    Plot the solid fraction distribution from a numpy array.
+
+    Parameters:
+        solid_fractions (np.ndarray): Array of solid fractions
+        bins (int): Number of bins for the histogram
+    """
+    plt.hist(solid_fractions, bins=bins)
     plt.xlabel("Solid Fraction")
     plt.ylabel("Frequency")
     plt.title("Solid Fraction Distribution in Dataset")
