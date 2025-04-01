@@ -241,6 +241,51 @@ def perform_hyperparameter_tuning(X_train, y_train, cv=5, quick=False):
     
     return grid_search.best_params_
 
+# feature engineering 
+def engineer_features(X):
+    """
+    Engineer additional features from XRD patterns to improve model performance
+    """
+    print("Performing feature engineering...")
+    
+    n_samples, n_features = X.shape
+    print(f"Original feature shape: {X.shape}")
+    
+    # List to store all features
+    all_features = [X]  # Start with original features
+    
+    # 1. Peak normalization - normalize each pattern relative to its max intensity
+    max_intensities = np.max(X, axis=1, keepdims=True)
+    normalized_patterns = X / (max_intensities + 1e-8)  # Avoid division by zero
+    all_features.append(normalized_patterns)
+    
+    # 2. Rolling statistics - capture local patterns
+    window_sizes = [3, 5]  # Multiple window sizes
+    for window in window_sizes:
+        # Moving averages
+        rolling_mean = np.zeros_like(X)
+        
+        for i in range(n_samples):
+            # Calculate moving average with valid padding
+            rolling_mean[i] = np.convolve(X[i], np.ones(window)/window, mode='same')
+        
+        all_features.append(rolling_mean)
+    
+    # 3. Statistical features - global pattern properties
+    global_stats = np.zeros((n_samples, 4))
+    for i in range(n_samples):
+        global_stats[i, 0] = np.mean(X[i])       # Mean intensity
+        global_stats[i, 1] = np.std(X[i])        # Standard deviation
+        global_stats[i, 2] = np.max(X[i])        # Maximum intensity
+        global_stats[i, 3] = np.median(X[i])     # Median intensity
+    all_features.append(global_stats)
+    
+    # Combine all features
+    X_engineered = np.hstack(all_features)
+    print(f"Engineered feature shape: {X_engineered.shape}")
+    
+    return X_engineered
+
 def main():
     """
     --split: Choose which train/test split to use (any split from TRAIN_TEST_SPLITS)​
@@ -258,6 +303,8 @@ def main():
     --quick-tune: Perform faster hyperparameter tuning with a smaller grid
 
     --resample: helps the model better generalize across the entire range of solid fractions
+
+    --engineer-features: Use feature engineering to try and improve model performance
     
     To run on the 2000K test data:
     python gbm.py --mode test --split train_2500_val_3500_test_2000
@@ -289,6 +336,7 @@ def main():
     parser.add_argument("--tune", action="store_true", help="Perform hyperparameter tuning with GridSearchCV")
     parser.add_argument("--quick-tune", action="store_true", help="Use a smaller parameter grid for faster tuning")
     parser.add_argument("--resample", action="store_true", help="Perform data resampling to balance training data")
+    parser.add_argument("--engineer-features", action="store_true", help="Apply feature engineering to improve model performance")
     args = parser.parse_args()
     
     # Use specified split
@@ -315,7 +363,13 @@ def main():
         
         print(f"Training data: {len(X_train)} samples")
         print(f"Test data: {len(X_test)} samples")
-        
+
+        # Inside main(), after loading X_train, X_test but before resampling:
+        if args.engineer_features:
+            # Apply feature engineering
+            X_train = engineer_features(X_train)
+            X_test = engineer_features(X_test)
+                
         # Data resampling if requested
         if args.resample:
             print("Performing improved resampling...")
