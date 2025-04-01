@@ -318,10 +318,10 @@ def main():
         
         # Data resampling if requested
         if args.resample:
-            print("Performing data resampling...")
+            print("Performing advanced resampling...")
             
-            # Create bins for solid fraction with finer granularity
-            num_bins = 20  
+            # Create bins with finer granularity
+            num_bins = 30  # Increased from 20 to 30
             bins = np.linspace(0, 1, num_bins+1)
             bin_indices = np.digitize(y_train, bins) - 1
             bin_indices = np.clip(bin_indices, 0, len(bins)-2)
@@ -332,14 +332,14 @@ def main():
             for i in range(len(bins)-1):
                 bin_start = bins[i]
                 bin_end = bins[i+1]
-                print(f"  Bin {i} ({bin_start:.1f}-{bin_end:.1f}): {bin_counts[i]} samples")
+                print(f"  Bin {i} ({bin_start:.3f}-{bin_end:.3f}): {bin_counts[i]} samples")
             
-            # Calculate median count as target threshold
-            non_empty_bins = bin_counts[bin_counts > 0]
-            target_count = np.median(non_empty_bins) 
+            # Determine target count based on percentile instead of median
+            non_empty_counts = bin_counts[bin_counts > 0]
+            target_count = np.percentile(non_empty_counts, 75)  # 75th percentile
             print(f"Target sample count per bin: {target_count}")
             
-            # Hybrid approach: under-sample majority bins, slightly oversample minority bins
+            # Create stratified sampling strategy
             X_resampled = []
             y_resampled = []
             
@@ -349,30 +349,79 @@ def main():
                 y_bin = y_train[bin_mask]
                 
                 if len(X_bin) > 0:
-                    if len(X_bin) > target_count * 1.5:
-                        # Under-sample bins with 50% more than target
-                        keep_count = int(target_count * 1.2)  # Keep 20% more than target
-                        indices = np.random.choice(len(X_bin), keep_count, replace=False)
-                        X_resampled.append(X_bin[indices])
-                        y_resampled.append(y_bin[indices])
-                    elif len(X_bin) < target_count * 0.5:
-                        # Oversample bins with less than 50% of target
-                        boost_factor = min(2.0, target_count / len(X_bin))  # Don't oversample more than 2x
-                        repeat_count = int(boost_factor)
+                    # For severely underrepresented bins, use targeted oversampling
+                    if len(X_bin) < target_count * 0.3:  # Less than 30% of target
+                        # Strong oversampling for very underrepresented regions
+                        multiplier = min(3.0, target_count / len(X_bin))  # Cap at 3x
                         
-                        # Add full repeats
+                        # Full copies
+                        repeat_count = int(multiplier)
                         for _ in range(repeat_count):
                             X_resampled.append(X_bin)
                             y_resampled.append(y_bin)
                         
-                        # Add partial repeat if needed
-                        remaining = int((boost_factor - repeat_count) * len(X_bin))
+                        # Partial copy with noise addition for diversity
+                        remaining = int((multiplier - repeat_count) * len(X_bin))
                         if remaining > 0:
                             indices = np.random.choice(len(X_bin), remaining, replace=False)
-                            X_resampled.append(X_bin[indices])
-                            y_resampled.append(y_bin[indices])
+                            # Add small noise to oversampled points (0.5% noise)
+                            X_noise = X_bin[indices] * (1 + np.random.normal(0, 0.005, X_bin[indices].shape))
+                            y_noise = y_bin[indices] * (1 + np.random.normal(0, 0.001, y_bin[indices].shape))
+                            # Clip y values to valid range
+                            y_noise = np.clip(y_noise, 0, 1)
+                            
+                            X_resampled.append(X_noise)
+                            y_resampled.append(y_noise)
+                    
+                    # For moderately underrepresented bins
+                    elif len(X_bin) < target_count * 0.7:  # Between 30% and 70% of target
+                        # Moderate oversampling
+                        multiplier = target_count / len(X_bin)
+                        
+                        # Keep original samples
+                        X_resampled.append(X_bin)
+                        y_resampled.append(y_bin)
+                        
+                        # Add additional samples with slight noise
+                        additional = int((multiplier - 1) * len(X_bin))
+                        if additional > 0:
+                            indices = np.random.choice(len(X_bin), additional, replace=True)
+                            # Add small noise (0.2% noise)
+                            X_noise = X_bin[indices] * (1 + np.random.normal(0, 0.002, X_bin[indices].shape))
+                            y_noise = y_bin[indices]  # Keep y values unchanged
+                            
+                            X_resampled.append(X_noise)
+                            y_resampled.append(y_noise)
+                    
+                    # For greatly overrepresented bins
+                    elif len(X_bin) > target_count * 1.5:  # More than 150% of target
+                        # Strategic undersampling - keep most diverse samples
+                        keep_count = int(target_count * 1.1)  # Keep 110% of target
+                        
+                        # Calculate distances between each point as a measure of diversity
+                        distances = np.zeros(len(X_bin))
+                        for j in range(len(X_bin)):
+                            # Calculate average distance to 5 nearest neighbors
+                            diff = X_bin - X_bin[j]
+                            dist = np.sqrt(np.sum(diff**2, axis=1))
+                            distances[j] = np.mean(np.sort(dist)[1:6])  # Skip distance to self
+                        
+                        # Keep points with highest distances (most diverse points)
+                        diverse_indices = np.argsort(distances)[-keep_count:]
+                        X_resampled.append(X_bin[diverse_indices])
+                        y_resampled.append(y_bin[diverse_indices])
+                    
+                    # For moderately overrepresented bins
+                    elif len(X_bin) > target_count * 1.1:  # Between 110% and 150% of target
+                        # Mild undersampling
+                        keep_count = int(target_count * 1.05)
+                        indices = np.random.choice(len(X_bin), keep_count, replace=False)
+                        X_resampled.append(X_bin[indices])
+                        y_resampled.append(y_bin[indices])
+                    
+                    # For bins close to target count (90%-110%)
                     else:
-                        # Keep bins that are close to target
+                        # Keep all samples
                         X_resampled.append(X_bin)
                         y_resampled.append(y_bin)
             
@@ -390,7 +439,7 @@ def main():
             for i in range(len(bins)-1):
                 bin_start = bins[i]
                 bin_end = bins[i+1]
-                print(f"  Bin {i} ({bin_start:.1f}-{bin_end:.1f}): {bin_counts_resampled[i]} samples")
+                print(f"  Bin {i} ({bin_start:.3f}-{bin_end:.3f}): {bin_counts_resampled[i]} samples")
 
         # Hyperparameter tuning if requested
         if args.tune:
