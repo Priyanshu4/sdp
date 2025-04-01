@@ -304,7 +304,7 @@ def main():
 
     --resample: helps the model better generalize across the entire range of solid fractions
 
-    --engineer-features: Use feature engineering to try and improve model performance
+    --engineer-features: Use feature engineering to try and improve model performance, however this seems to be overgeneralizing the data, so no need to use it, its good enough without.
     
     To run on the 2000K test data:
     python gbm.py --mode test --split train_2500_val_3500_test_2000
