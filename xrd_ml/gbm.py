@@ -317,7 +317,7 @@ def main():
         print(f"Test data: {len(X_test)} samples")
         
         # Data resampling if requested
-        if args.resample:
+    if args.resample:
         print("Performing data resampling...")
         
         # Create bins for solid fraction with finer granularity
