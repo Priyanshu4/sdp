@@ -8,9 +8,10 @@ import argparse
 from train_test_split import (
     load_train_data, 
     load_validation_data, 
-    load_test_data_by_temp,  # test data
+    load_test_data_by_temp,
     get_x_y_as_np_array,
-    data_by_temp_to_x_y_np_array   
+    data_by_temp_to_x_y_np_array,
+    TRAIN_TEST_SPLITS
 )
 
 def resample_dataset_from_binned_solid_fractions(data, solid_fractions, n_bins=20, 
@@ -117,17 +118,17 @@ class XRDRandomForest:
         }
         self.model = RandomForestRegressor(**self.params)
         
-    def plot_predictions_by_temp(self, y_true, y_pred, temps):
+    def plot_predictions_by_temp(self, y_true, y_pred, temps, output_name='random_forest_test_predictions_vs_actual.png', title='Random Forest: Predictions vs Actual Values (Test Data)'):
         plt.figure(figsize=(8, 6))
     
         plot_model_predictions_by_temp(y_true, y_pred, temps)
     
-        plt.title('Random Forest: Predictions vs Actual Values (Test Data)')
+        plt.title(title)
         plt.grid(True)
-        plt.savefig('random_forest_test_predictions_vs_actual.png')
+        plt.savefig(output_name)
         plt.close()
 
-    def train(self, X_train, y_train, X_val, y_val):
+    def train(self, X_train, y_train, X_val=None, y_val=None):
         """Train the Random Forest model on training data."""
         print("Training Random Forest model...")
         self.model.fit(X_train, y_train)
@@ -149,7 +150,7 @@ class XRDRandomForest:
         }
         return predictions, metrics
 
-    def plot_feature_importance(self, feature_names=None):
+    def plot_feature_importance(self, feature_names=None, output_name='random_forest_feature_importance.png'):
         """Plot and save the Random Forest feature importance scores."""
         importance = self.model.feature_importances_
         if feature_names is None:
@@ -166,10 +167,10 @@ class XRDRandomForest:
         plt.xticks(range(len(sorted_importance)), sorted_features, rotation=45, ha='right')
         plt.title('Random Forest Feature Importance')
         plt.tight_layout()
-        plt.savefig('random_forest_feature_importance.png')
+        plt.savefig(output_name)
         plt.close()
 
-    def plot_predictions(self, y_true, y_pred):
+    def plot_predictions(self, y_true, y_pred, output_name='random_forest_predictions_vs_actual.png', title='Random Forest: Predictions vs Actual Values'):
         """Plot predicted vs actual solid fraction values."""
         plt.figure(figsize=(8, 6))
         plt.scatter(y_true, y_pred, alpha=0.5)
@@ -179,9 +180,9 @@ class XRDRandomForest:
         plt.plot([min_val, max_val], [min_val, max_val], 'r--')
         plt.xlabel('Actual Solid Fraction')
         plt.ylabel('Predicted Solid Fraction')
-        plt.title('Random Forest: Predictions vs Actual Values')
+        plt.title(title)
         plt.grid(True)
-        plt.savefig('random_forest_predictions_vs_actual.png')
+        plt.savefig(output_name)
         plt.close()
 
     def evaluate_by_range(self, X_test, y_test):
@@ -203,7 +204,7 @@ class XRDRandomForest:
         return results
 
 def main():
-    # Parse command line arguments for resampling option
+    # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train a Random Forest model for XRD analysis.")
     parser.add_argument("--resample", action="store_true", 
                         help="Perform resampling to balance the training data distribution")
@@ -213,84 +214,163 @@ def main():
                        help="Threshold for undersampling bins (default: 0.8)")
     parser.add_argument("--oversample", action="store_true",
                        help="Enable oversampling of underrepresented bins")
+    parser.add_argument("--split", type=str, default="original", choices=TRAIN_TEST_SPLITS.keys(),
+                       help="Training/validation/test split to use (default: original)")
+    parser.add_argument("--mode", type=str, default="validation", choices=["validation", "test"],
+                       help="Evaluation mode: 'validation' or 'test' (default: validation)")
     args = parser.parse_args()
 
-    print("Loading training data...")
-    train_data = load_train_data()
-    print("Loading validation data...")
-    validation_data = load_validation_data()
-    
-    # Convert data to numpy arrays
-    X_train, y_train = get_x_y_as_np_array(train_data)
-    X_val, y_val = get_x_y_as_np_array(validation_data)
-    
-    # Apply resampling if requested
-    if args.resample:
-        print("Resampling the training dataset to balance it...")
-        X_train, y_train = resample_dataset_from_binned_solid_fractions(
-            data=X_train,
-            solid_fractions=y_train,
-            n_bins=args.n_bins,
-            bin_undersampling_threshold=args.threshold,
-            oversample=args.oversample,
-            random_seed=42
-        )
-        print(f"Number of training samples after balancing: {X_train.shape[0]}")
-    
-    # Initialize and train the Random Forest model
-    rf_model = XRDRandomForest()
-    rf_model.train(X_train, y_train, X_val, y_val)
-    
-    # Evaluate overall performance on the validation data
-    predictions, metrics = rf_model.evaluate(X_val, y_val)
-    
-    print("\nOverall Performance:")
-    print(f"Mean Squared Error: {metrics['mse']:.6f}")
-    print(f"Mean Absolute Error: {metrics['mae']:.6f}")
-    print(f"Root Mean Squared Error: {metrics['rmse']:.6f}")
-    print(f"R² Score: {metrics['r2']:.6f}")
-    
-    # Plot feature importance and predictions vs actual
-    rf_model.plot_feature_importance()
-    rf_model.plot_predictions(y_val, predictions)
-    
-    # Evaluate performance across different solid fraction ranges
-    range_results = rf_model.evaluate_by_range(X_val, y_val)
-    print("\nPerformance by solid fraction range:")
-    for range_name, met in range_results.items():
-        print(f"\nRange {range_name}:")
-        print(f"  MSE: {met['mse']:.6f}")
-        print(f"  MAE: {met['mae']:.6f}")
-        print(f"  Number of samples: {met['n_samples']}")
+    # Use specified split
+    split = TRAIN_TEST_SPLITS[args.split]
+    print(f"Using {args.split} split:")
+    print(f"  Training data: {split.train_data}")
+    print(f"  Validation data: {split.validation_data}")
+    print(f"  Test data: {split.test_data}")
+
+    if args.mode == "test":
+        # TEST MODE: Train on combined train+val data, evaluate on test data
+        print("Using full training data (including validation) and test dataset for final evaluation.")
         
-    # Load test data instead of validation data
-    print("Loading test data...")
-    test_data_by_temp = load_test_data_by_temp(suppress_load_errors=True)
+        # Load data
+        print("Loading training data (including validation)...")
+        train_data = load_train_data(split=split, suppress_load_errors=True, include_validation_set=True)
+        
+        print("Loading test data...")
+        test_data_by_temp = load_test_data_by_temp(split=split, suppress_load_errors=True)
+        
+        # Convert to numpy arrays
+        X_train, y_train = get_x_y_as_np_array(train_data)
+        X_test, y_test, test_temps = data_by_temp_to_x_y_np_array(test_data_by_temp)
+        
+        print(f"Training data: {len(X_train)} samples")
+        print(f"Test data: {len(X_test)} samples")
+        
+        # Apply resampling if requested
+        if args.resample:
+            print("Resampling the training dataset to balance it...")
+            X_train, y_train = resample_dataset_from_binned_solid_fractions(
+                data=X_train,
+                solid_fractions=y_train,
+                n_bins=args.n_bins,
+                bin_undersampling_threshold=args.threshold,
+                oversample=args.oversample,
+                random_seed=42
+            )
+            print(f"Number of training samples after balancing: {X_train.shape[0]}")
+        
+        # Create descriptive filenames based on the split and mode
+        suffix = "_resampled" if args.resample else ""
+        plot_title = f"Random Forest: {args.split} Split (Test Mode){suffix}"
+        feature_importance_filename = f"rf_{args.split}_test{suffix}_feature_importance.png"
+        predictions_filename = f"rf_{args.split}_test{suffix}_predictions.png"
+        
+        # Initialize and train the model
+        rf_model = XRDRandomForest()
+        rf_model.train(X_train, y_train)
+        
+        # Evaluate on test data
+        predictions, metrics = rf_model.evaluate(X_test, y_test)
+        
+        print("\nTest Data Performance:")
+        print(f"Mean Squared Error: {metrics['mse']:.6f}")
+        print(f"Mean Absolute Error: {metrics['mae']:.6f}")
+        print(f"Root Mean Squared Error: {metrics['rmse']:.6f}")
+        print(f"R² Score: {metrics['r2']:.6f}")
+        
+        # Plot feature importance
+        rf_model.plot_feature_importance(output_name=feature_importance_filename)
+        
+        # Plot predictions
+        rf_model.plot_predictions_by_temp(
+            y_test, predictions, test_temps,
+            output_name=predictions_filename,
+            title=plot_title
+        )
+        
+        # Evaluate by range
+        range_results = rf_model.evaluate_by_range(X_test, y_test)
+        print("\nPerformance by solid fraction range on test data:")
+        for range_name, met in range_results.items():
+            print(f"\nRange {range_name}:")
+            print(f"  MSE: {met['mse']:.6f}")
+            print(f"  MAE: {met['mae']:.6f}")
+            print(f"  Number of samples: {met['n_samples']}")
     
-    # Convert test data - this returns both the data and the temperature info
-    X_test, y_test, test_temps = data_by_temp_to_x_y_np_array(test_data_by_temp)
-    
-    # Evaluate on test data
-    print("Evaluating on test data (2000K)...")
-    predictions, metrics = rf_model.evaluate(X_test, y_test)
-    
-    print("\nTest Data Performance:")
-    print(f"Mean Squared Error: {metrics['mse']:.6f}")
-    print(f"Mean Absolute Error: {metrics['mae']:.6f}")
-    print(f"Root Mean Squared Error: {metrics['rmse']:.6f}")
-    print(f"R² Score: {metrics['r2']:.6f}")
-    
-    # Plot predictions by temperature
-    rf_model.plot_predictions_by_temp(y_test, predictions, test_temps)
-    
-    # Evaluate performance across different solid fraction ranges
-    range_results = rf_model.evaluate_by_range(X_test, y_test)
-    print("\nPerformance by solid fraction range on test data:")
-    for range_name, met in range_results.items():
-        print(f"\nRange {range_name}:")
-        print(f"  MSE: {met['mse']:.6f}")
-        print(f"  MAE: {met['mae']:.6f}")
-        print(f"  Number of samples: {met['n_samples']}")
+    else:
+        # VALIDATION MODE: Train on train data, evaluate on validation data
+        print("Using train data and validation dataset for evaluation.")
+        
+        # Load data
+        print("Loading training data...")
+        train_data = load_train_data(split=split, suppress_load_errors=True)
+        
+        print("Loading validation data with temperature information...")
+        validation_data_by_temp = load_validation_data_by_temp(split=split, suppress_load_errors=True)
+        
+        # Convert to numpy arrays
+        X_train, y_train = get_x_y_as_np_array(train_data)
+        X_val, y_val, val_temps = data_by_temp_to_x_y_np_array(validation_data_by_temp)
+        
+        print(f"Training data: {len(X_train)} samples")
+        print(f"Validation data: {len(X_val)} samples")
+        
+        # Print temperature information
+        unique_temps = np.unique(val_temps, axis=0)
+        print(f"Found {len(unique_temps)} unique temperature combinations in validation data:")
+        for temp in unique_temps:
+            count = np.sum(np.all(val_temps == temp, axis=1))
+            print(f"  {temp[0]} K, Melting Temp {temp[1]} K: {count} samples")
+        
+        # Apply resampling if requested
+        if args.resample:
+            print("Resampling the training dataset to balance it...")
+            X_train, y_train = resample_dataset_from_binned_solid_fractions(
+                data=X_train,
+                solid_fractions=y_train,
+                n_bins=args.n_bins,
+                bin_undersampling_threshold=args.threshold,
+                oversample=args.oversample,
+                random_seed=42
+            )
+            print(f"Number of training samples after balancing: {X_train.shape[0]}")
+        
+        # Create descriptive filenames based on the split and mode
+        suffix = "_resampled" if args.resample else ""
+        plot_title = f"Random Forest: {args.split} Split (Validation Mode){suffix}"
+        feature_importance_filename = f"rf_{args.split}_val{suffix}_feature_importance.png"
+        predictions_filename = f"rf_{args.split}_val{suffix}_predictions.png"
+        
+        # Initialize and train the model
+        rf_model = XRDRandomForest()
+        rf_model.train(X_train, y_train)
+        
+        # Evaluate overall performance on the validation data
+        predictions, metrics = rf_model.evaluate(X_val, y_val)
+        
+        print("\nValidation Performance:")
+        print(f"Mean Squared Error: {metrics['mse']:.6f}")
+        print(f"Mean Absolute Error: {metrics['mae']:.6f}")
+        print(f"Root Mean Squared Error: {metrics['rmse']:.6f}")
+        print(f"R² Score: {metrics['r2']:.6f}")
+        
+        # Plot feature importance
+        rf_model.plot_feature_importance(output_name=feature_importance_filename)
+        
+        # Plot predictions
+        rf_model.plot_predictions_by_temp(
+            y_val, predictions, val_temps,
+            output_name=predictions_filename,
+            title=plot_title
+        )
+        
+        # Evaluate by range
+        range_results = rf_model.evaluate_by_range(X_val, y_val)
+        print("\nPerformance by solid fraction range:")
+        for range_name, met in range_results.items():
+            print(f"\nRange {range_name}:")
+            print(f"  MSE: {met['mse']:.6f}")
+            print(f"  MAE: {met['mae']:.6f}")
+            print(f"  Number of samples: {met['n_samples']}")
 
 if __name__ == "__main__":
     main()
