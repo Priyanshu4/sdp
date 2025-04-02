@@ -85,3 +85,123 @@ def resample_dataset_from_binned_solid_fractions(
     resampled_solid_fractions = np.concatenate(resampled_solid_fractions)
 
     return resampled_data, resampled_solid_fractions
+
+
+
+def resample_dataset_percentile_threshold(
+    data, 
+    solid_fractions, 
+    n_bins=20, 
+    percentile_threshold=0.8,
+    oversample=False,
+    oversample_factor=0.5,
+    random_seed=42,
+    verbose=True
+):
+    """
+    Resample a dataset to balance the distribution of solid fractions using a percentile threshold.
+    
+    This resampling method:
+    1. Bins the data by solid fraction into n_bins equally spaced bins
+    2. Finds the bin size at the specified percentile threshold
+    3. Undersamples all bins with more samples than this threshold
+    4. Optionally oversamples bins with very few samples
+    
+    Parameters:
+        data: Features array (X)
+        solid_fractions: Target values (y)
+        n_bins: Number of bins to divide the solid fraction range [0,1]
+        percentile_threshold: Percentile threshold for bin size capping (0.8 = 80th percentile)
+        oversample: Whether to oversample underrepresented bins
+        oversample_factor: Factor for determining which bins to oversample (bins < threshold * oversample_factor)
+        random_seed: Random seed for reproducibility
+        verbose: Whether to print resampling details
+        
+    Returns:
+        Tuple of (resampled_data, resampled_solid_fractions)
+    """
+    np.random.seed(random_seed)
+    
+    # Create bins
+    bins = np.linspace(0, 1, n_bins + 1)
+    bin_indices = np.digitize(solid_fractions, bins) - 1
+    bin_indices = np.clip(bin_indices, 0, len(bins)-2)  # Ensure indices are within valid range
+    
+    # Count samples in each bin
+    bin_counts = np.bincount(bin_indices, minlength=len(bins)-1)
+    
+    if verbose:
+        print("Original distribution of solid fractions across bins:")
+        for i in range(len(bins)-1):
+            if bin_counts[i] > 0:
+                bin_start, bin_end = bins[i], bins[i+1]
+                print(f"  Bin {i+1}/{n_bins} ({bin_start:.2f}-{bin_end:.2f}): {bin_counts[i]} samples")
+    
+    # Find bin counts at the specified percentile threshold
+    non_empty_bins = bin_counts[bin_counts > 0]
+    percentile_count = np.percentile(non_empty_bins, percentile_threshold * 100)
+    
+    if verbose:
+        print(f"Bin size at {percentile_threshold*100:.0f}th percentile: {percentile_count:.0f}")
+    
+    # Perform resampling
+    X_resampled = []
+    y_resampled = []
+    
+    for i in range(len(bins)-1):
+        bin_mask = (bin_indices == i)
+        X_bin = data[bin_mask]
+        y_bin = solid_fractions[bin_mask]
+        
+        if len(X_bin) > 0:
+            if len(X_bin) > percentile_count:
+                # Under-sample bins larger than the percentile threshold
+                keep_count = int(percentile_count)
+                indices = np.random.choice(len(X_bin), keep_count, replace=False)
+                X_resampled.append(X_bin[indices])
+                y_resampled.append(y_bin[indices])
+                if verbose:
+                    print(f"  Bin {i+1}: Under-sampled from {len(X_bin)} to {keep_count}")
+            elif oversample and len(X_bin) < percentile_count * oversample_factor:
+                # Oversample very small bins if requested
+                # First, keep all original samples
+                X_resampled.append(X_bin)
+                y_resampled.append(y_bin)
+                
+                # Then add duplicates to reach target
+                target_count = int(percentile_count * oversample_factor)
+                additional_needed = target_count - len(X_bin)
+                if additional_needed > 0:
+                    indices = np.random.choice(len(X_bin), additional_needed, replace=True)
+                    X_resampled.append(X_bin[indices])
+                    y_resampled.append(y_bin[indices])
+                    if verbose:
+                        print(f"  Bin {i+1}: Oversampled from {len(X_bin)} to {target_count}")
+            else:
+                # Keep bins below the threshold
+                X_resampled.append(X_bin)
+                y_resampled.append(y_bin)
+                if verbose:
+                    print(f"  Bin {i+1}: Kept all {len(X_bin)} samples (below threshold)")
+    
+    # Combine resampled data
+    X_resampled_array = np.vstack(X_resampled)
+    y_resampled_array = np.concatenate(y_resampled)
+    
+    # Verify new distribution
+    if verbose:
+        bin_indices_resampled = np.digitize(y_resampled_array, bins) - 1
+        bin_indices_resampled = np.clip(bin_indices_resampled, 0, len(bins)-2)
+        bin_counts_resampled = np.bincount(bin_indices_resampled, minlength=len(bins)-1)
+        
+        print("\nResampled distribution:")
+        for i in range(len(bins)-1):
+            if bin_counts_resampled[i] > 0:
+                bin_start, bin_end = bins[i], bins[i+1]
+                print(f"  Bin {i+1}/{n_bins} ({bin_start:.2f}-{bin_end:.2f}): {bin_counts_resampled[i]} samples")
+        
+        print(f"Original dataset: {len(solid_fractions)} samples")
+        print(f"Resampled dataset: {len(y_resampled_array)} samples")
+    
+    return X_resampled_array, y_resampled_array
+
