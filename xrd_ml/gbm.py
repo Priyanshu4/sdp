@@ -241,50 +241,91 @@ def perform_hyperparameter_tuning(X_train, y_train, cv=5, quick=False):
     
     return grid_search.best_params_
 
-# feature engineering 
-def engineer_features(X):
+def resample_dataset_from_binned_solid_fractions(data, solid_fractions, n_bins=20, 
+                                               bin_undersampling_threshold=0.8, 
+                                               oversample=False, random_seed=42):
     """
-    Engineer additional features from XRD patterns to improve model performance
+    Resample a dataset to balance the distribution of solid fractions.
+    
+    This resampling method implements the same approach as used in the SVR model:
+    1. Bin the data by solid fraction into n_bins equally spaced bins
+    2. Find the bin size at the specified percentile (bin_undersampling_threshold)
+    3. Undersample all bins with more samples than this threshold
+    
+    Parameters:
+        data: Features array (X)
+        solid_fractions: Target values (y)
+        n_bins: Number of bins to divide the solid fraction range [0,1]
+        bin_undersampling_threshold: Percentile threshold for bin size capping (0.8 = 80th percentile)
+        oversample: Whether to oversample underrepresented bins (not used in SVR approach)
+        random_seed: Random seed for reproducibility
+        
+    Returns:
+        Tuple of (resampled_data, resampled_solid_fractions)
     """
-    print("Performing feature engineering...")
+    np.random.seed(random_seed)
     
-    n_samples, n_features = X.shape
-    print(f"Original feature shape: {X.shape}")
+    # Create bins
+    bins = np.linspace(0, 1, n_bins + 1)
+    bin_indices = np.digitize(solid_fractions, bins) - 1
+    bin_indices = np.clip(bin_indices, 0, len(bins)-2)  # Ensure indices are within valid range
     
-    # List to store all features
-    all_features = [X]  # Start with original features
+    # Count samples in each bin
+    bin_counts = np.bincount(bin_indices, minlength=len(bins)-1)
     
-    # 1. Peak normalization - normalize each pattern relative to its max intensity
-    max_intensities = np.max(X, axis=1, keepdims=True)
-    normalized_patterns = X / (max_intensities + 1e-8)  # Avoid division by zero
-    all_features.append(normalized_patterns)
+    print("Original distribution of solid fractions across bins:")
+    for i in range(len(bins)-1):
+        if bin_counts[i] > 0:
+            bin_start, bin_end = bins[i], bins[i+1]
+            print(f"  Bin {i+1}/{n_bins} ({bin_start:.2f}-{bin_end:.2f}): {bin_counts[i]} samples")
     
-    # 2. Rolling statistics - capture local patterns
-    window_sizes = [3, 5]  # Multiple window sizes
-    for window in window_sizes:
-        # Moving averages
-        rolling_mean = np.zeros_like(X)
+    # Find bin counts at the specified percentile threshold
+    non_empty_bins = bin_counts[bin_counts > 0]
+    percentile_threshold = np.percentile(non_empty_bins, bin_undersampling_threshold * 100)
+    print(f"Bin size at {bin_undersampling_threshold*100:.0f}th percentile: {percentile_threshold:.0f}")
+    
+    # Perform resampling
+    X_resampled = []
+    y_resampled = []
+    
+    for i in range(len(bins)-1):
+        bin_mask = (bin_indices == i)
+        X_bin = data[bin_mask]
+        y_bin = solid_fractions[bin_mask]
         
-        for i in range(n_samples):
-            # Calculate moving average with valid padding
-            rolling_mean[i] = np.convolve(X[i], np.ones(window)/window, mode='same')
-        
-        all_features.append(rolling_mean)
+        if len(X_bin) > 0:
+            if len(X_bin) > percentile_threshold:
+                # Under-sample bins larger than the threshold
+                keep_count = int(percentile_threshold)
+                indices = np.random.choice(len(X_bin), keep_count, replace=False)
+                X_resampled.append(X_bin[indices])
+                y_resampled.append(y_bin[indices])
+                print(f"  Bin {i+1}: Under-sampled from {len(X_bin)} to {keep_count}")
+            else:
+                # Keep all samples for bins smaller than threshold
+                X_resampled.append(X_bin)
+                y_resampled.append(y_bin)
+                print(f"  Bin {i+1}: Kept all {len(X_bin)} samples (under threshold)")
     
-    # 3. Statistical features - global pattern properties
-    global_stats = np.zeros((n_samples, 4))
-    for i in range(n_samples):
-        global_stats[i, 0] = np.mean(X[i])       # Mean intensity
-        global_stats[i, 1] = np.std(X[i])        # Standard deviation
-        global_stats[i, 2] = np.max(X[i])        # Maximum intensity
-        global_stats[i, 3] = np.median(X[i])     # Median intensity
-    all_features.append(global_stats)
+    # Combine resampled data
+    X_resampled_array = np.vstack(X_resampled)
+    y_resampled_array = np.concatenate(y_resampled)
     
-    # Combine all features
-    X_engineered = np.hstack(all_features)
-    print(f"Engineered feature shape: {X_engineered.shape}")
+    # Verify new distribution
+    bin_indices_resampled = np.digitize(y_resampled_array, bins) - 1
+    bin_indices_resampled = np.clip(bin_indices_resampled, 0, len(bins)-2)
+    bin_counts_resampled = np.bincount(bin_indices_resampled, minlength=len(bins)-1)
     
-    return X_engineered
+    print("\nResampled distribution:")
+    for i in range(len(bins)-1):
+        if bin_counts_resampled[i] > 0:
+            bin_start, bin_end = bins[i], bins[i+1]
+            print(f"  Bin {i+1}/{n_bins} ({bin_start:.2f}-{bin_end:.2f}): {bin_counts_resampled[i]} samples")
+    
+    print(f"Original dataset: {len(solid_fractions)} samples")
+    print(f"Resampled dataset: {len(y_resampled_array)} samples")
+    
+    return X_resampled_array, y_resampled_array
 
 def main():
     """
@@ -302,9 +343,7 @@ def main():
     
     --quick-tune: Perform faster hyperparameter tuning with a smaller grid
 
-    --resample: helps the model better generalize across the entire range of solid fractions
-
-    --engineer-features: Use feature engineering to try and improve model performance, however this seems to be overgeneralizing the data, so no need to use it, its good enough without.
+    --resample: Use SVR-style resampling (80th percentile capping)
     
     To run on the 2000K test data:
     python gbm.py --mode test --split train_2500_val_3500_test_2000
@@ -323,6 +362,9 @@ def main():
     
     To perform quick hyperparameter tuning:
     python gbm.py --mode test --split train_2500_val_3500_test_2000 --tune --quick-tune
+    
+    To use SVR-style resampling:
+    python gbm.py --mode test --split train_2500_val_3500_test_2000 --resample
     """
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train and evaluate XGBoost model for XRD analysis.")
@@ -335,8 +377,7 @@ def main():
     parser.add_argument("--boost-rounds", type=int, default=1000, help="Number of boosting rounds (default: 1000)")
     parser.add_argument("--tune", action="store_true", help="Perform hyperparameter tuning with GridSearchCV")
     parser.add_argument("--quick-tune", action="store_true", help="Use a smaller parameter grid for faster tuning")
-    parser.add_argument("--resample", action="store_true", help="Perform data resampling to balance training data")
-    parser.add_argument("--engineer-features", action="store_true", help="Apply feature engineering to improve model performance")
+    parser.add_argument("--resample", action="store_true", help="Use SVR-style resampling (80th percentile capping)")
     args = parser.parse_args()
     
     # Use specified split
@@ -363,85 +404,19 @@ def main():
         
         print(f"Training data: {len(X_train)} samples")
         print(f"Test data: {len(X_test)} samples")
-
-        # Inside main(), after loading X_train, X_test but before resampling:
-        if args.engineer_features:
-            # Apply feature engineering
-            X_train = engineer_features(X_train)
-            X_test = engineer_features(X_test)
-                
+        
         # Data resampling if requested
         if args.resample:
-            print("Performing improved resampling...")
-            
-            # Create bins for solid fraction
-            num_bins = 20  # Keep the original bin count
-            bins = np.linspace(0, 1, num_bins+1)
-            bin_indices = np.digitize(y_train, bins) - 1
-            bin_indices = np.clip(bin_indices, 0, len(bins)-2)
-            
-            # Count samples in each bin
-            bin_counts = np.bincount(bin_indices, minlength=len(bins)-1)
-            print("Distribution of training data across solid fraction bins:")
-            for i in range(len(bins)-1):
-                bin_start = bins[i]
-                bin_end = bins[i+1]
-                print(f"  Bin {i} ({bin_start:.1f}-{bin_end:.1f}): {bin_counts[i]} samples")
-            
-            # Calculate target count - using median instead of maximum
-            non_empty_bins = bin_counts[bin_counts > 0]
-            target_count = np.median(non_empty_bins)
-            print(f"Target sample count per bin: {target_count}")
-            
-            # Balanced approach - moderate adjustments to all bins
-            X_resampled = []
-            y_resampled = []
-            
-            for i in range(len(bins)-1):
-                bin_mask = (bin_indices == i)
-                X_bin = X_train[bin_mask]
-                y_bin = y_train[bin_mask]
-                
-                if len(X_bin) > 0:
-                    if len(X_bin) > target_count * 1.5:
-                        # Under-sample bins with more than 150% of target
-                        keep_count = int(target_count * 1.2)  # Keep 120% of target
-                        indices = np.random.choice(len(X_bin), keep_count, replace=False)
-                        X_resampled.append(X_bin[indices])
-                        y_resampled.append(y_bin[indices])
-                    elif len(X_bin) < target_count * 0.5:
-                        # Oversample bins with less than 50% of target
-                        # First, keep all original samples
-                        X_resampled.append(X_bin)
-                        y_resampled.append(y_bin)
-                        
-                        # Then add duplicates as needed
-                        if len(X_bin) > 0:  # Check if bin has any samples
-                            additional_needed = int(target_count * 0.8) - len(X_bin)
-                            if additional_needed > 0:
-                                indices = np.random.choice(len(X_bin), additional_needed, replace=True)
-                                X_resampled.append(X_bin[indices])
-                                y_resampled.append(y_bin[indices])
-                    else:
-                        # Keep bins that are reasonably sized
-                        X_resampled.append(X_bin)
-                        y_resampled.append(y_bin)
-            
-            # Combine resampled data
-            X_train = np.vstack(X_resampled)
-            y_train = np.concatenate(y_resampled)
-            
+            print("Performing SVR-style resampling...")
+            X_train, y_train = resample_dataset_from_binned_solid_fractions(
+                data=X_train,
+                solid_fractions=y_train,
+                n_bins=20,
+                bin_undersampling_threshold=0.8,
+                oversample=False,
+                random_seed=42
+            )
             print(f"After resampling: {len(X_train)} training samples")
-            
-            # Verify distribution
-            bin_indices_resampled = np.digitize(y_train, bins) - 1
-            bin_indices_resampled = np.clip(bin_indices_resampled, 0, len(bins)-2)
-            bin_counts_resampled = np.bincount(bin_indices_resampled, minlength=len(bins)-1)
-            print("Distribution after resampling:")
-            for i in range(len(bins)-1):
-                bin_start = bins[i]
-                bin_end = bins[i+1]
-                print(f"  Bin {i} ({bin_start:.1f}-{bin_end:.1f}): {bin_counts_resampled[i]} samples")
 
         # Hyperparameter tuning if requested
         if args.tune:
@@ -487,7 +462,7 @@ def main():
         
         # Create descriptive filenames based on the split and mode
         suffix = "_tuned" if args.tune else ""
-        suffix += "_resampled" if args.resample else ""
+        suffix += "_svr_resampled" if args.resample else ""
         plot_title = f"XGBoost: {args.split} Split (Test Mode){suffix}"
         feature_importance_filename = f"xgboost_{args.split}_test{suffix}_feature_importance.png"
         predictions_filename = f"xgboost_{args.split}_test{suffix}_predictions.png"
@@ -540,6 +515,19 @@ def main():
             count = np.sum(np.all(val_temps == temp, axis=1))
             print(f"  {temp[0]} K, Melting Temp {temp[1]} K: {count} samples")
         
+        # Data resampling if requested
+        if args.resample:
+            print("Performing SVR-style resampling...")
+            X_train, y_train = resample_dataset_from_binned_solid_fractions(
+                data=X_train,
+                solid_fractions=y_train,
+                n_bins=20,
+                bin_undersampling_threshold=0.8,
+                oversample=False,
+                random_seed=42
+            )
+            print(f"After resampling: {len(X_train)} training samples")
+        
         # Hyperparameter tuning if requested
         if args.tune:
             best_params = perform_hyperparameter_tuning(
@@ -579,6 +567,7 @@ def main():
         
         # Create descriptive filenames based on the split and mode
         suffix = "_tuned" if args.tune else ""
+        suffix += "_svr_resampled" if args.resample else ""
         plot_title = f"XGBoost: {args.split} Split (Validation Mode){suffix}"
         feature_importance_filename = f"xgboost_{args.split}_val{suffix}_feature_importance.png"
         predictions_filename = f"xgboost_{args.split}_val{suffix}_predictions.png"
