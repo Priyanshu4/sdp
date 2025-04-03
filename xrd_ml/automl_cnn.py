@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 from train_test_split import (
     TRAIN_TEST_SPLITS,
     load_train_data, 
-    load_validation_data,
+    load_validation_data_by_temp,
     load_test_data_by_temp,
     get_x_y_as_np_array,
     data_by_temp_to_x_y_np_array
@@ -103,7 +103,7 @@ def main():
     tuner = kt.Hyperband(
         build_model,
         objective='val_loss',
-        max_epochs=50,   # maximum epochs per model
+        max_epochs=500,   # maximum epochs per model
         factor=3,        # reduction factor for resource allocation
         directory='autotuner_dir',
         project_name=name,
@@ -115,8 +115,8 @@ def main():
     X_train, y_train = get_x_y_as_np_array(train_data)
 
     print("Loading validation data...")
-    validation_data = load_validation_data(split=split, suppress_load_errors=True)
-    X_val, y_val = get_x_y_as_np_array(validation_data)
+    validation_data = load_validation_data_by_temp(split=split, suppress_load_errors=True)
+    X_val, y_val, temps_val = data_by_temp_to_x_y_np_array(validation_data)
 
     # Load the test data and evaluate the best model
     print("Loading test data...")
@@ -155,6 +155,13 @@ def main():
     # Evaluate the best model on validation data
     results = best_model.evaluate(X_val, y_val)
     print(f"Evaluation results on validation data - Loss (MSE): {results[0]}, MAE: {results[1]}")
+
+    plt.figure()
+    plt.title("Predictions of the Best CNN on Validation Data")
+    val_predictions = best_model.predict(X_val)
+    plot_model_predictions_by_temp(y_val, val_predictions, temps_val)
+    save_plot('automl_cnn_val_predictions.png')
+    print("Plot saved to automl_cnn_val_predictions.png")
 
     # Plot the best model and save to file
     print("Plotting the best model...")
