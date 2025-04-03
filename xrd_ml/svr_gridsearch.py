@@ -17,7 +17,10 @@ from train_test_split import (
     data_by_temp_to_x_y_np_array,
     TRAIN_TEST_SPLITS,
 )
-from imbalance import resample_dataset_from_binned_solid_fractions
+from imbalance import (
+    resample_dataset_from_binned_solid_fractions,
+    resample_dataset_percentile_threshold
+)
 
 if __name__ == "__main__":
 
@@ -30,8 +33,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--balance",
-        action="store_true",
-        help="Whether to balance the train dataset with resampling."
+        type=int,
+        help="Whether to balance the train dataset with resampling and the balancing type.",
+        default=0,
+        choices=[0, 1, 2],
     )
     args = parser.parse_args()
     if args.train_test_split not in TRAIN_TEST_SPLITS:
@@ -60,8 +65,9 @@ if __name__ == "__main__":
     print(f"Number of validation samples: {validation_x.shape[0]}")
     print(f"Number of testing samples: {test_x.shape[0]}")
 
-    if args.balance:
+    if args.balance == 1:
         print("Resampling the training dataset to balance it...")
+        print("Using resample_dataset_from_binned_solid_fractions")
         train_x, train_y = resample_dataset_from_binned_solid_fractions(
             data=train_x,
             solid_fractions=train_y,
@@ -71,6 +77,15 @@ if __name__ == "__main__":
             random_seed=42
         )
         print(f"Number of training samples after balancing: {train_x.shape[0]}")
+    elif args.balance == 2:
+        print("Resampling the training dataset to balance it...")
+        print("Using resample_dataset_percentile_threshold")
+        train_x, train_y = resample_dataset_percentile_threshold(
+            data=train_x,
+            solid_fractions=train_y
+        )
+        print(f"Number of training samples after balancing: {train_x.shape[0]}")     
+    
     
     # scikit-learn uses this value when we set gamma='scale'
     gamma_scale = 1 / (n_features * np.var(train_x))
