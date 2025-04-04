@@ -88,13 +88,18 @@ def main():
         action="store_true",
         help="Whether to balance the train dataset with resampling."
     )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=50,
+    )
     args = parser.parse_args()
     if args.train_test_split not in TRAIN_TEST_SPLITS:
         raise ValueError(f"Invalid train_test_split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
     print(f"Using train_test_split: {args.train_test_split}")
     split = TRAIN_TEST_SPLITS[args.train_test_split]
 
-    name = f"automl_cnn_{args.train_test_split}_split"
+    name = f"automl_cnn_{args.train_test_split}_split_{args.epochs}_epochs"
     if args.balance:
         name += "_balanced"
     set_plots_subdirectory(name, add_timestamp=True)
@@ -143,7 +148,7 @@ def main():
     # Start the hyperparameter search using Hyperband
     tuner.search(X_train, y_train, 
                 validation_data=(X_val, y_val), 
-                epochs=50, 
+                epochs=args.epochs, 
                 batch_size=32)
 
     # Retrieve the best model and hyperparameters
