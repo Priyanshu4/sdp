@@ -7,7 +7,7 @@ import argparse
 
 from train_test_split import (
     load_train_data, 
-    load_validation_data, 
+    load_validation_data_by_temp,
     load_test_data_by_temp,
     get_x_y_as_np_array,
     data_by_temp_to_x_y_np_array,
@@ -232,8 +232,8 @@ def main():
         print("Using full training data (including validation) and test dataset for final evaluation.")
         
         # Load data
-        print("Loading training data (including validation)...")
-        train_data = load_train_data(split=split, suppress_load_errors=True, include_validation_set=True)
+        print("Loading training data...")
+        train_data = load_train_data(split=split, suppress_load_errors=True)
         
         print("Loading test data...")
         test_data_by_temp = load_test_data_by_temp(split=split, suppress_load_errors=True)
