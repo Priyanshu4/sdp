@@ -139,7 +139,7 @@ def plot_model_predictions_by_temp(true_solid_fractions, predicted_solid_fractio
             true_solid_fractions[mask],
             predicted_solid_fractions[mask],
             alpha=0.5,
-            label=f"{temp} K, Melting Temp {melt_temp} K",
+            label=f"{temp} K, Heat Source {melt_temp} K",
             color=color_dict[temp_tuple]
         )
         
