@@ -513,11 +513,11 @@ def main():
         print(f"Found {len(unique_temps)} unique temperature combinations in validation data:")
         for temp in unique_temps:
             count = np.sum(np.all(val_temps == temp, axis=1))
-            print(f"  {temp[0]} K, Melting Temp {temp[1]} K: {count} samples")
+            print(f"  {temp[0]} K, Heat Source {temp[1]} K: {count} samples")
         
         # Data resampling if requested
         if args.resample:
-            print("Performing SVR-style resampling...")
+            print("Performing resampling...")
             X_train, y_train = resample_dataset_from_binned_solid_fractions(
                 data=X_train,
                 solid_fractions=y_train,
