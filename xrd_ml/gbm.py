@@ -119,7 +119,7 @@ class XRDBoost:
         plt.figure(figsize=(8, 6))
         
         # Add explicit grid
-        plt.grid(True)
+        #plt.grid(True)
         
         # Check if temps is valid
         if temps is not None and len(temps) > 0 and len(temps) == len(y_true):
