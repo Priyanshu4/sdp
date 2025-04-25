@@ -20,7 +20,7 @@ All scripts can be run with the `-h` argument to see their description and argum
 
 ### Model Training Scripts
 
-**Support Vector Regression (SVR)**
+#### Support Vector Regression (SVR)
 - `svr.py`
   - Trains an SVR with hyperparameters specified with command line
   - Arguments:
@@ -39,11 +39,16 @@ All scripts can be run with the `-h` argument to see their description and argum
      - Uses scikit learn GridSearchCV (grid search with cross validation) to train on combined training + validation set
      - The hyperparameters which perform best are used for evaluation on the test set
 
-**Convolutional Neural Network**
-**Random Forest**
-**Gradient Boosting Machines**
+#### Convolutional Neural Network
+TODO
 
-#### Utility Scripts
+#### Random Forest
+TODO
+
+#### Gradient Boosting Machines
+TODO
+
+### Utility Scripts
 - `plot_solid_fraction_distribution.py`
      - Plots the solid fraction distribution for the entire dataset, as well as for the the train, validation and test data.
      - Plots are saved to `xrd-ml/plots` in a timestamped subdirectory
