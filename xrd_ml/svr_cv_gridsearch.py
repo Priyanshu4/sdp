@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from sklearn.svm import SVR
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import GridSearchCV, KFold
@@ -6,18 +7,46 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from plotting import (
     plot_model_predictions_by_temp,
-    save_plot
+    save_plot,
+    set_plots_subdirectory
 )
 from train_test_split import (
     load_train_data, 
     load_test_data_by_temp,
     get_x_y_as_np_array,
-    data_by_temp_to_x_y_np_array)
+    data_by_temp_to_x_y_np_array,
+    TRAIN_TEST_SPLITS)
+from imbalance import resample_dataset_from_binned_solid_fractions
 
 if __name__ == "__main__":
+    # Parse command line argument to determine the TRAIN_TEST_SPLIT
+    parser = ArgumentParser(description="Train an SVR model with hyperparameters tuned on validation data.")
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="original",
+    )
+    parser.add_argument(
+        "--balance",
+        action="store_true",
+        help="Whether to balance the train dataset with resampling",
+    )
+    args = parser.parse_args()
+    if args.split not in TRAIN_TEST_SPLITS:
+        raise ValueError(f"Invalid split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
+    print(f"Using train test split: {args.split}")
+    split = TRAIN_TEST_SPLITS[args.split]
+ 
+     # Update the subdirectory name to reflect Random Forest
+    name = f"rf_gridsearch_{args.split}_split"
+    if args.balance:
+        name += "_balanced"
+    set_plots_subdirectory(name, add_timestamp=True)
+
+
     print("Loading dataset...")
-    train = load_train_data(suppress_load_errors=True, include_validation_set=True)
-    test = load_test_data_by_temp(suppress_load_errors=True)
+    train = load_train_data(split=split, suppress_load_errors=True, include_validation_set=True)
+    test = load_test_data_by_temp(split=split, suppress_load_errors=True)
     
     train_x, train_y = get_x_y_as_np_array(train)
     test_x, test_y, test_temps = data_by_temp_to_x_y_np_array(test)
@@ -26,6 +55,19 @@ if __name__ == "__main__":
     print(f"Number of features: {n_features}")
     print(f"Number of training samples: {n_samples}")
     print(f"Number of testing samples: {test_x.shape[0]}")
+
+    if args.balance:
+        print("Resampling the training dataset to balance it...")
+        print("Using resample_dataset_from_binned_solid_fractions")
+        train_x, train_y = resample_dataset_from_binned_solid_fractions(
+            data=train_x,
+            solid_fractions=train_y,
+            n_bins=20,
+            bin_undersampling_threshold=0.8,
+            oversample=False,
+            random_seed=42
+        )
+        print(f"Number of training samples after balancing: {train_x.shape[0]}")
 
     # scikit-learn uses this value when we set gamma='scale'
     gamma_scale = 1 / (n_features * np.var(train_x))

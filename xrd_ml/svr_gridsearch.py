@@ -35,8 +35,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     if args.split not in TRAIN_TEST_SPLITS:
-        raise ValueError(f"Invalid train_test_split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
-    print(f"Using train_test_split: {args.split}")
+        raise ValueError(f"Invalid split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
+    print(f"Using train test split: {args.split}")
     split = TRAIN_TEST_SPLITS[args.split]
 
     name = f"svr_gridsearch_{args.split}_split"
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     print(f"Number of validation samples: {validation_x.shape[0]}")
     print(f"Number of testing samples: {test_x.shape[0]}")
 
-    if args.balance == 1:
+    if args.balance:
         print("Resampling the training dataset to balance it...")
         print("Using resample_dataset_from_binned_solid_fractions")
         train_x, train_y = resample_dataset_from_binned_solid_fractions(
