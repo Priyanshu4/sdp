@@ -43,10 +43,25 @@ All scripts can be run with the `-h` argument to see their description and argum
 TODO
 
 #### Random Forest
-TODO
+- `rf_gridsearch.py`
+  - Trains a Random Forest model with grid search for hyperparameter optimization
+  - Arguments:
+     - `--train_test_split`: Selects which train/test split to use
+     - `--balance`: Use resampling to balance the training data distribution with undersampling 
 
 #### Gradient Boosting Machines
-TODO
+- `gbm.py`
+  - Trains an XGBoost model for regression on XRD data
+  - Arguments:
+     - `--split`: Choose which train/test split to use
+     - `--mode`: Select "validation" or "test" mode
+     - `--lr`: Set the learning rate (default: 0.01)
+     - `--depth`: Set the maximum tree depth (default: 6)
+     - `--boost-rounds`: Set the number of boosting rounds (default: 1000)
+     - `--tune`: Perform hyperparameter tuning with GridSearchCV
+     - `--quick-tune`: Use a smaller parameter grid for faster tuning
+     - `--resample`: Use resampling to balance the training data distribution with undersampling 
+
 
 ### Utility Scripts
 - `plot_solid_fraction_distribution.py`
