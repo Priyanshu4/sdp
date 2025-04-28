@@ -96,7 +96,7 @@ These files are not meant to be executed directly, but provide helper functions 
 - `train_test_split.py`
      - Provides functions to split and load train data, validation data and test data
      - Defines multiple different training and test splits and includes a dictionary mapping strings to each split
-          - Other files which have a `split` or `train_test_split` argument use this dictionary
+          - Other files which have a `split` argument use this dictionary
 - `imbalance.py`
      - Provides functions to resample the dataset in order to handle data imbalance
      - `resample_dataset_from_binned_solid_fractions` is the function we ended up using (but not with the default arguments listed there, refer to our model files for the arguments we actually use)
