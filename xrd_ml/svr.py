@@ -89,7 +89,6 @@ def main():
     # Optionally balance the training dataset
     if args.balance:
         print("Resampling the training dataset to balance it...")
-        print("Using resample_dataset_from_binned_solid_fractions")
         train_x, train_y = resample_dataset_from_binned_solid_fractions(
             data=train_x,
             solid_fractions=train_y,

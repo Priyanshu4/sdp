@@ -325,7 +325,6 @@ def main():
         
         # Data resampling if requested
         if args.balance:
-            print("Performing SVR-style resampling...")
             X_train, y_train = resample_dataset_from_binned_solid_fractions(
                 data=X_train,
                 solid_fractions=y_train,
