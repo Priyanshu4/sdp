@@ -27,9 +27,10 @@ if __name__ == "__main__":
     # Parse command line argument to determine the TRAIN_TEST_SPLIT
     parser = ArgumentParser(description="Train a Random Forest model with hyperparameters tuned on validation data.")
     parser.add_argument(
-        "--train_test_split",
+        "--split",
         type=str,
         default="original",
+        choices=TRAIN_TEST_SPLITS.keys(),
     )
     parser.add_argument(
         "--balance",
@@ -39,13 +40,11 @@ if __name__ == "__main__":
         choices=[0, 1, 2],
     )
     args = parser.parse_args()
-    if args.train_test_split not in TRAIN_TEST_SPLITS:
-        raise ValueError(f"Invalid train_test_split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
-    print(f"Using train_test_split: {args.train_test_split}")
-    split = TRAIN_TEST_SPLITS[args.train_test_split]
+    print(f"Using train test split: {args.split}")
+    split = TRAIN_TEST_SPLITS[args.split]
 
     # Update the subdirectory name to reflect Random Forest
-    name = f"rf_gridsearch_{args.train_test_split}_split"
+    name = f"rf_gridsearch_{args.split}_split"
     if args.balance:
         name += "_balanced"
     set_plots_subdirectory(name, add_timestamp=True)
@@ -67,7 +66,7 @@ if __name__ == "__main__":
     print(f"Number of testing samples: {test_x.shape[0]}")
 
     # Optionally balance the training dataset
-    if args.balance == 1:
+    if args.balance:
         print("Resampling the training dataset to balance it...")
         print("Using resample_dataset_from_binned_solid_fractions")
         train_x, train_y = resample_dataset_from_binned_solid_fractions(
@@ -79,15 +78,7 @@ if __name__ == "__main__":
             random_seed=42
         )
         print(f"Number of training samples after balancing: {train_x.shape[0]}")
-    elif args.balance == 2:
-        print("Resampling the training dataset to balance it...")
-        print("Using resample_dataset_percentile_threshold")
-        train_x, train_y = resample_dataset_percentile_threshold(
-            data=train_x,
-            solid_fractions=train_y
-        )
-        print(f"Number of training samples after balancing: {train_x.shape[0]}")     
-    
+
     # Define the parameter grid to search for RandomForestRegressor
     param_grid = {
         'n_estimators': [50, 100, 200],
