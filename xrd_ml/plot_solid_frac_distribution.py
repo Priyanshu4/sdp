@@ -26,9 +26,11 @@ if __name__ == "__main__":
     # Parse command line argument to determine the TRAIN_TEST_SPLIT
     parser = ArgumentParser(description="Plot solid fraction distribution.")
     parser.add_argument(
-        "--train_test_split",
+        "--split",
         type=str,
-        default="original",
+        default="train_2000_val_2500_test_3500",
+        choices=TRAIN_TEST_SPLITS.keys(),
+        help="Specify the train-test split to use (keys from train_test_split.py.TRAIN_TEST_SPLIT).",
     )
     parser.add_argument(
         "--balance",
@@ -36,12 +38,10 @@ if __name__ == "__main__":
         help="Whether to include a plot of the balanced train dataset."
     )
     args = parser.parse_args()
-    if args.train_test_split not in TRAIN_TEST_SPLITS:
-        raise ValueError(f"Invalid train_test_split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
-    print(f"Using train_test_split: {args.train_test_split}")
-    split = TRAIN_TEST_SPLITS[args.train_test_split]
+    print(f"Using train test split: {args.split}")
+    split = TRAIN_TEST_SPLITS[args.split]
 
-    set_plots_subdirectory(f"solid_frac_distribution_{args.train_test_split}_split", add_timestamp=True)
+    set_plots_subdirectory(f"solid_frac_distribution_{args.split}_split", add_timestamp=True)
 
     print("Loading dataset...")
     full_dataset = load_processed_data(suppress_load_errors=True)
@@ -93,12 +93,11 @@ if __name__ == "__main__":
         print("Balancing training data ...")
         train_x, train_y = get_x_y_as_np_array(train)
         balanced_train_x, balanced_train_y = resample_dataset_from_binned_solid_fractions(
-            train_x,
-            train_y,
+            data=train_x,
+            solid_fractions=train_y,
             n_bins=20,
-            n_samples_per_bin=None,
-            bin_undersampling_threshold=0.9,
-            oversample=True,
+            bin_undersampling_threshold=0.8,
+            oversample=False,
             random_seed=42
         )
         plt.figure()
