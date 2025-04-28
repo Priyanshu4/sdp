@@ -28,6 +28,7 @@ if __name__ == "__main__":
         type=str,
         default="train_2000_val_2500_test_3500",
         choices=TRAIN_TEST_SPLITS.keys(),
+        help="Specify the train-test split to use (keys from train_test_split.py.TRAIN_TEST_SPLIT).",
     )
     parser.add_argument(
         "--balance",
