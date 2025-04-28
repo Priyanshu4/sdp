@@ -8,15 +8,18 @@ import matplotlib.pyplot as plt
 # Import plotting functions and data loading utilities
 from plotting import (
     plot_model_predictions_by_temp,
-    save_plot
+    save_plot,
+    set_plots_subdirectory,
 )
 from train_test_split import (
     load_train_data, 
     load_test_data_by_temp,
     load_validation_data_by_temp,
     get_x_y_as_np_array,
-    data_by_temp_to_x_y_np_array
+    data_by_temp_to_x_y_np_array,
+    TRAIN_TEST_SPLITS,
 )
+from imbalance import resample_dataset_from_binned_solid_fractions
 
 def parse_gamma(value):
     """
@@ -34,24 +37,45 @@ def parse_gamma(value):
 def main():
     # Parse command line arguments for hyperparameters and evaluation mode.
     parser = argparse.ArgumentParser(description="Train and evaluate an SVR model using command-line specified hyperparameters.")
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="train_2000_val_2500_test_3500",
+        choices=TRAIN_TEST_SPLITS.keys(),
+        help="Specify the train-test split to use (keys from train_test_split.py.TRAIN_TEST_SPLIT).",
+    )
+    parser.add_argument(
+        "--balance",
+        action="store_true",
+        help="Whether to balance the train dataset with resampling",
+    )    
     parser.add_argument("--C", type=float, default=1.0, help="Regularization parameter (default: 1.0)")
     parser.add_argument("--gamma", type=parse_gamma, default="scale", help="Kernel coefficient (default: 'scale'). Accepts a float, 'scale', or 'auto'.")
     parser.add_argument("--epsilon", type=float, default=0.1, help="Epsilon in the epsilon-SVR model (default: 0.1)")
     parser.add_argument("--test", action="store_true", help="If provided, train on the full training data (including validation) and evaluate on the test dataset. Otherwise, train on the train data (excluding validation) and evaluate on the validation dataset.")
+    
     args = parser.parse_args()
+    print(f"Using train test split: {args.split}")
+    split = TRAIN_TEST_SPLITS[args.split]
+ 
+     # Update the subdirectory name to reflect Random Forest
+    name = f"svr_{args.split}_split"
+    if args.balance:
+        name += "_balanced"
+    set_plots_subdirectory(name, add_timestamp=True)
 
     # Load the appropriate training and evaluation datasets based on the --test flag
     if args.test:
         print("Using full training data (including validation) and test dataset for evaluation.")
         print("This is for final evaluation purposes only.")
         print("Loading data...")
-        train = load_train_data(suppress_load_errors=True, include_validation_set=True)
-        eval_data = load_test_data_by_temp(suppress_load_errors=True)
+        train = load_train_data(split=split, suppress_load_errors=True, include_validation_set=True)
+        eval_data = load_test_data_by_temp(split=split, suppress_load_errors=True)
     else:
         print("Using train data (excluding validation) and validation dataset for evaluation.")
         print("Loading data...")
-        train = load_train_data(suppress_load_errors=True, include_validation_set=False)
-        eval_data = load_validation_data_by_temp(suppress_load_errors=True)
+        train = load_train_data(split=split, suppress_load_errors=True, include_validation_set=False)
+        eval_data = load_validation_data_by_temp(split=split, suppress_load_errors=True)
 
     # Convert datasets to numpy arrays
     train_x, train_y = get_x_y_as_np_array(train)
@@ -62,6 +86,20 @@ def main():
     print(f"Number of training samples: {n_train_samples}")
     print(f"Number of features: {n_features}")
     print(f"Number of evaluation samples: {n_eval_samples}")
+
+    # Optionally balance the training dataset
+    if args.balance:
+        print("Resampling the training dataset to balance it...")
+        print("Using resample_dataset_from_binned_solid_fractions")
+        train_x, train_y = resample_dataset_from_binned_solid_fractions(
+            data=train_x,
+            solid_fractions=train_y,
+            n_bins=20,
+            bin_undersampling_threshold=0.8,
+            oversample=False,
+            random_seed=42
+        )
+        print(f"Number of training samples after balancing: {train_x.shape[0]}")
 
     # Create and train the SVR model using provided hyperparameters.
     print("\nTraining the SVR model with parameters:")
