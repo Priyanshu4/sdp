@@ -52,7 +52,6 @@ All model training scripts share the following arguments. The arguments listed f
        - Each convolutional block has a convolutional layer, batch normalization, max pooling and dropout
   - Uses early stopping to prevent overfitting
   - Has model checkpointing to save weights during training
-
 - `automl_cnn.py`
   - ***This is what we used to generate our final CNN results***
   - Trains a CNN with automatic tuning of architecture and hyperparameters via Hyperband Tuning from `keras_tuner` library
