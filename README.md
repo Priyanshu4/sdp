@@ -15,7 +15,6 @@ For a project overview, see https://seniordesignday.engr.uconn.edu/seniorproject
 5. If you install more packages, update the environment.yml file by running `conda env export > environment.yml`
 
 ## Code Documentation
-
 All scripts can be run with the `-h` argument to see their description and arguments.
 
 If any scripts produce plots, they will automatically create a `plots` directory within the repository and a subdirectory in the `plots` folder that is labeled with the model/script name and a timestamp. All of the plots for the script will be stored within this subdirectory. This is handled by the `set_plots_subdirectory` and `save_plot` functions in `plotting.py`.
@@ -37,25 +36,37 @@ All model training scripts share the following arguments. The arguments listed f
      - `--test`
           - If provided, train on training set + validation set and report results on test set.
           - If not provided, train on training set and and report results on validation set.
-          - Currently, this script does not support selecting the `train_test_split`. It only uses our original split.
 - `svr_gridsearch.py`
   - ***This is what we used to generate our final SVR results***
   - Trains SVRs on the training set with gridsearch for hyperparameter optimization
   - Gridsearch tunes the `C`, `gamma` and `epsilon`
-  - The SVR which performs best on the validation set is then used for evaluation on the test set
+  - SVR with best performance on the validation set is evaluated on the test set
 - `svr_gridsearch.py`
      - Uses scikit learn GridSearchCV (grid search with cross validation) to train on combined training + validation set
      - The hyperparameters which perform best are used for evaluation on the test set
 
 #### Convolutional Neural Network
-TODO
+- `cnn.py`
+  - Trains a CNN on the training set and tests it on the validation set (no hyperparameter tuning and uses validation as a test set)
+  - Uses an architecture with four 1D Convolutional blocks and three dense layers
+       - Each convolutional block has a convolutional layer, batch normalization, max pooling and dropout
+  - Uses early stopping to prevent overfitting
+  - Has model checkpointing to save weights during training
+
+- `automl_cnn.py`
+  - ***This is what we used to generate our final CNN results***
+  - Trains a CNN with automatic tuning of architecture and hyperparameters via Hyperband Tuning from `keras_tuner` library
+  - Uses an architecture with two 1D Convolutional blocks and two dense layers
+       - Each convolutional block has a convolutional layer, batch normalization, max pooling and dropout
+       - Layer sizes, kernel sizes, pooling sizes and dropout probabilities are automatically tuned
+  - Model with best performance on validation set is evaluated on the test set
 
 #### Random Forest
 - `rf_gridsearch.py`
   - ***This is what we used to generate our final Random Forest results***
   - Trains a Random Forest model with grid search for hyperparameter optimization
   - Gridsearch tunes the `n_estimators` (Number of trees in the forest), `max_depth` (Maximum depth of trees) and `min_samples_split` (Minimum samples required to split a node) 
-  - The random forest which performs best on the validation set is then used for evaluation on the test set
+  - Model with best performance on validation set is evaluated on the test set 
 
 #### Gradient Boosting Machines
 - `gbm.py`
@@ -71,14 +82,11 @@ TODO
 
 ### Utility Scripts
 - `plot_solid_fraction_distribution.py`
-     - Plots the solid fraction distribution for the entire dataset, as well as for the the train, validation and test data.
-     - Plots are saved to `xrd-ml/plots` in a timestamped subdirectory
+     - Plots the solid fraction distribution for the entire dataset, as well as for the the train, validation and test data
      - Has `split` and `balance` arguments
 - `submit_xrd_jobs.py`
      - Script we used to automate submission of jobs to run XRD on .bin files
      - Can detect missing timesteps and automatically submit jobs by temporarily modifying and executing the `Job-Submission-Individual-Files-V1.0.sh` file which is stored along with our data on the HPC
-
-All scripts can be run with the `-h` parameter to see their description and arguments.
 
 ### Python Helper Modules
 These files are not meant to be executed directly, but provide helper functions that are used by our model training and utility scripts.
