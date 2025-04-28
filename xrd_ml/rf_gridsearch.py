@@ -35,11 +35,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--balance",
-        type=int,
-        help="Whether to balance the train dataset with resampling and the balancing type.",
-        default=0,
-        choices=[0, 1, 2],
-    )
+        action="store_true",
+        help="Whether to balance the train dataset with resampling",
+    )    
     args = parser.parse_args()
     print(f"Using train test split: {args.split}")
     split = TRAIN_TEST_SPLITS[args.split]
