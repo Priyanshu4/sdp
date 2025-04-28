@@ -29,7 +29,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--split",
         type=str,
-        default="original",
+        default="train_2000_val_2500_test_3500",
         choices=TRAIN_TEST_SPLITS.keys(),
     )
     parser.add_argument(

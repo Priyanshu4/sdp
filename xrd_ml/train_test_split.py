@@ -64,6 +64,7 @@ BRING_IN_300_2000 = TrainTestSplit(
     test_data=[(x, 2000) for x in range(400, 1300, 100)]
 )
 
+# This is the split used in our results
 TRAIN_2000_VAL_2500_TEST_3500 = TrainTestSplit(
     train_data=ALL_2000K,
     validation_data=ALL_2500K,

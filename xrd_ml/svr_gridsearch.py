@@ -26,7 +26,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--split",
         type=str,
-        default="original",
+        default="train_2000_val_2500_test_3500",
+        choices=TRAIN_TEST_SPLITS.keys(),
     )
     parser.add_argument(
         "--balance",
@@ -34,8 +35,6 @@ if __name__ == "__main__":
         help="Whether to balance the train dataset with resampling",
     )
     args = parser.parse_args()
-    if args.split not in TRAIN_TEST_SPLITS:
-        raise ValueError(f"Invalid split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
     print(f"Using train test split: {args.split}")
     split = TRAIN_TEST_SPLITS[args.split]
 
