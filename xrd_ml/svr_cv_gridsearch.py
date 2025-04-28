@@ -37,7 +37,7 @@ if __name__ == "__main__":
     split = TRAIN_TEST_SPLITS[args.split]
  
      # Update the subdirectory name to reflect Random Forest
-    name = f"rf_gridsearch_{args.split}_split"
+    name = f"svr_cv_gridsearch_{args.split}_split"
     if args.balance:
         name += "_balanced"
     set_plots_subdirectory(name, add_timestamp=True)
