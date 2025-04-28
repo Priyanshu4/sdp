@@ -37,7 +37,6 @@ if __name__ == "__main__":
     print(f"Using train test split: {args.split}")
     split = TRAIN_TEST_SPLITS[args.split]
  
-     # Update the subdirectory name to reflect Random Forest
     name = f"svr_cv_gridsearch_{args.split}_split"
     if args.balance:
         name += "_balanced"
