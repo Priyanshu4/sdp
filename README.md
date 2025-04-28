@@ -39,7 +39,7 @@ All model training scripts share the following arguments. The arguments listed f
           - If not provided, train on training set and and report results on validation set.
           - Currently, this script does not support selecting the `train_test_split`. It only uses our original split.
 - `svr_gridsearch.py`
-  - *This is what we used to generate our final SVR results*
+  - ***This is what we used to generate our final SVR results***
   - Trains SVRs on the training set without various hyperparameter combinations
   - The SVR which performs best is on the validation set is then used for evaluation on the test set
 - `svr_gridsearch.py`
@@ -51,35 +51,32 @@ TODO
 
 #### Random Forest
 - `rf_gridsearch.py`
+  - ***This is what we used to generate our final Random Forest results***
   - Trains a Random Forest model with grid search for hyperparameter optimization
-  - Arguments:
-
+  - Tunes the `n_estimators` (Number of trees in the forest), `max_depth` (Maximum depth of trees) and `min_samples_split` (Minimum samples required to split a node) parameters
 
 #### Gradient Boosting Machines
 - `gbm.py`
+  - ***This is what we used to generate our final Gradient Boosted Machine results***
   - Trains an XGBoost model for regression on XRD data
   - Arguments:
-     - `--split`: Choose which train/test split to use
      - `--mode`: Select "validation" or "test" mode
      - `--lr`: Set the learning rate (default: 0.01)
      - `--depth`: Set the maximum tree depth (default: 6)
      - `--boost-rounds`: Set the number of boosting rounds (default: 1000)
      - `--tune`: Perform hyperparameter tuning with GridSearchCV
      - `--quick-tune`: Use a smaller parameter grid for faster tuning
-     - `--resample`: Use resampling to balance the training data distribution with undersampling 
-
 
 ### Utility Scripts
 - `plot_solid_fraction_distribution.py`
      - Plots the solid fraction distribution for the entire dataset, as well as for the the train, validation and test data.
      - Plots are saved to `xrd-ml/plots` in a timestamped subdirectory
-     - Has `train_test_split` and `balance` arguments
+     - Has `split` and `balance` arguments
 - `submit_xrd_jobs.py`
      - Script we used to automate submission of jobs to run XRD on .bin files
      - Can detect missing timesteps and automatically submit jobs by temporarily modifying and executing the `Job-Submission-Individual-Files-V1.0.sh` file which is stored along with our data on the HPC
 
 All scripts can be run with the `-h` parameter to see their description and arguments.
-
 
 ### Python Helper Modules
 These files are not meant to be executed directly, but provide helper functions that are used by our model training and utility scripts.
