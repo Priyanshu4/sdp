@@ -9,7 +9,8 @@ from pathlib import Path
 from plotting import (
     plot_model_predictions,
     plot_model_predictions_by_temp,
-    save_plot
+    save_plot,
+    set_plots_subdirectory,
 )
 from train_test_split import (
     load_train_data, 
@@ -20,11 +21,7 @@ from train_test_split import (
     data_by_temp_to_x_y_np_array,
     TRAIN_TEST_SPLITS
 )
-from plotting import plot_solid_fraction_distribution
-
-# Create plots directory if it doesn't exist
-plots_dir = Path(__file__).parent.parent / "plots"
-plots_dir.mkdir(parents=True, exist_ok=True)
+from imbalance import resample_dataset_from_binned_solid_fractions
 
 class XRDBoost:
     def __init__(self, params=None):
@@ -101,9 +98,9 @@ class XRDBoost:
         plt.tight_layout()
         
         # Save plot
-        plt.savefig(plots_dir / output_name)
+        save_plot(output_name)
         plt.close()
-        print(f"Feature importance plot saved to {plots_dir / output_name}")
+        print(f"Feature importance plot saved to {output_name}")
 
     def plot_predictions(self, y_true, y_pred, temps=None, output_name='xgboost_predictions.png', title=None):
         """
@@ -135,9 +132,9 @@ class XRDBoost:
             plt.title('XGBoost Predictions vs Actual Values')
         
         # Save plot
-        plt.savefig(plots_dir / output_name)
+        save_plot(output_name)
         plt.close()
-        print(f"Predictions plot saved to {plots_dir / output_name}")
+        print(f"Predictions plot saved to {output_name}")
 
     def evaluate_by_range(self, X_test, y_test):
         """Evaluate predictions across different ranges of solid fraction"""
@@ -241,92 +238,6 @@ def perform_hyperparameter_tuning(X_train, y_train, cv=5, quick=False):
     
     return grid_search.best_params_
 
-def resample_dataset_from_binned_solid_fractions(data, solid_fractions, n_bins=20, 
-                                               bin_undersampling_threshold=0.8, 
-                                               oversample=False, random_seed=42):
-    """
-    Resample a dataset to balance the distribution of solid fractions.
-    
-    This resampling method implements the same approach as used in the SVR model:
-    1. Bin the data by solid fraction into n_bins equally spaced bins
-    2. Find the bin size at the specified percentile (bin_undersampling_threshold)
-    3. Undersample all bins with more samples than this threshold
-    
-    Parameters:
-        data: Features array (X)
-        solid_fractions: Target values (y)
-        n_bins: Number of bins to divide the solid fraction range [0,1]
-        bin_undersampling_threshold: Percentile threshold for bin size capping (0.8 = 80th percentile)
-        oversample: Whether to oversample underrepresented bins (not used in SVR approach)
-        random_seed: Random seed for reproducibility
-        
-    Returns:
-        Tuple of (resampled_data, resampled_solid_fractions)
-    """
-    np.random.seed(random_seed)
-    
-    # Create bins
-    bins = np.linspace(0, 1, n_bins + 1)
-    bin_indices = np.digitize(solid_fractions, bins) - 1
-    bin_indices = np.clip(bin_indices, 0, len(bins)-2)  # Ensure indices are within valid range
-    
-    # Count samples in each bin
-    bin_counts = np.bincount(bin_indices, minlength=len(bins)-1)
-    
-    print("Original distribution of solid fractions across bins:")
-    for i in range(len(bins)-1):
-        if bin_counts[i] > 0:
-            bin_start, bin_end = bins[i], bins[i+1]
-            print(f"  Bin {i+1}/{n_bins} ({bin_start:.2f}-{bin_end:.2f}): {bin_counts[i]} samples")
-    
-    # Find bin counts at the specified percentile threshold
-    non_empty_bins = bin_counts[bin_counts > 0]
-    percentile_threshold = np.percentile(non_empty_bins, bin_undersampling_threshold * 100)
-    print(f"Bin size at {bin_undersampling_threshold*100:.0f}th percentile: {percentile_threshold:.0f}")
-    
-    # Perform resampling
-    X_resampled = []
-    y_resampled = []
-    
-    for i in range(len(bins)-1):
-        bin_mask = (bin_indices == i)
-        X_bin = data[bin_mask]
-        y_bin = solid_fractions[bin_mask]
-        
-        if len(X_bin) > 0:
-            if len(X_bin) > percentile_threshold:
-                # Under-sample bins larger than the threshold
-                keep_count = int(percentile_threshold)
-                indices = np.random.choice(len(X_bin), keep_count, replace=False)
-                X_resampled.append(X_bin[indices])
-                y_resampled.append(y_bin[indices])
-                print(f"  Bin {i+1}: Under-sampled from {len(X_bin)} to {keep_count}")
-            else:
-                # Keep all samples for bins smaller than threshold
-                X_resampled.append(X_bin)
-                y_resampled.append(y_bin)
-                print(f"  Bin {i+1}: Kept all {len(X_bin)} samples (under threshold)")
-    
-    # Combine resampled data
-    X_resampled_array = np.vstack(X_resampled)
-    y_resampled_array = np.concatenate(y_resampled)
-    
-    # Verify new distribution
-    bin_indices_resampled = np.digitize(y_resampled_array, bins) - 1
-    bin_indices_resampled = np.clip(bin_indices_resampled, 0, len(bins)-2)
-    bin_counts_resampled = np.bincount(bin_indices_resampled, minlength=len(bins)-1)
-    
-    print("\nResampled distribution:")
-    for i in range(len(bins)-1):
-        if bin_counts_resampled[i] > 0:
-            bin_start, bin_end = bins[i], bins[i+1]
-            print(f"  Bin {i+1}/{n_bins} ({bin_start:.2f}-{bin_end:.2f}): {bin_counts_resampled[i]} samples")
-    
-    print(f"Original dataset: {len(solid_fractions)} samples")
-    print(f"Resampled dataset: {len(y_resampled_array)} samples")
-    
-    return X_resampled_array, y_resampled_array
-
 def main():
     """
     --split: Choose which train/test split to use (any split from TRAIN_TEST_SPLITS)​
@@ -363,13 +274,13 @@ def main():
     To perform quick hyperparameter tuning:
     python gbm.py --mode test --split train_2500_val_3500_test_2000 --tune --quick-tune
     
-    To use SVR-style resampling:
-    python gbm.py --mode test --split train_2500_val_3500_test_2000 --resample
+    To balance the training dataset by undersampling:
+    python gbm.py --mode test --split train_2500_val_3500_test_2000 --balance
     """
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train and evaluate XGBoost model for XRD analysis.")
-    parser.add_argument("--split", type=str, default="original", choices=TRAIN_TEST_SPLITS.keys(), 
-                        help="Training split to use (default: original)")
+    parser.add_argument("--split", type=str, default="train_2000_val_2500_test_3500", choices=TRAIN_TEST_SPLITS.keys(), 
+                        help="Training split to use (default: train_2000_val_2500_test_3500)")
     parser.add_argument("--mode", type=str, default="validation", choices=["validation", "test"],
                         help="Evaluation mode: 'validation' or 'test' (default: validation)")
     parser.add_argument("--lr", type=float, default=0.01, help="Learning rate (default: 0.01)")
@@ -377,7 +288,7 @@ def main():
     parser.add_argument("--boost-rounds", type=int, default=1000, help="Number of boosting rounds (default: 1000)")
     parser.add_argument("--tune", action="store_true", help="Perform hyperparameter tuning with GridSearchCV")
     parser.add_argument("--quick-tune", action="store_true", help="Use a smaller parameter grid for faster tuning")
-    parser.add_argument("--resample", action="store_true", help="Use SVR-style resampling (80th percentile capping)")
+    parser.add_argument("--balance", action="store_true", help="Balance the training dataset with undersampling")
     args = parser.parse_args()
     
     # Use specified split
@@ -386,7 +297,14 @@ def main():
     print(f"  Training data: {split.train_data}")
     print(f"  Validation data: {split.validation_data}")
     print(f"  Test data: {split.test_data}")
-    
+
+    name = f"xgboost_{args.split}_split"
+    if args.balance:
+        name += "_balanced"
+    if args.tune:
+        name += "_tuned"
+    set_plots_subdirectory(name, add_timestamp=True)
+
     if args.mode == "test":
         # TEST MODE: Train on combined train+val data, evaluate on test data
         print("Using full training data (including validation) and test dataset for final evaluation.")
@@ -406,7 +324,7 @@ def main():
         print(f"Test data: {len(X_test)} samples")
         
         # Data resampling if requested
-        if args.resample:
+        if args.balance:
             print("Performing SVR-style resampling...")
             X_train, y_train = resample_dataset_from_binned_solid_fractions(
                 data=X_train,
@@ -460,13 +378,6 @@ def main():
         # Evaluate on test data
         predictions, metrics = xrd_boost.evaluate(X_test, y_test)
         
-        # Create descriptive filenames based on the split and mode
-        suffix = "_tuned" if args.tune else ""
-        suffix += "_svr_resampled" if args.resample else ""
-        plot_title = f"XGBoost: {args.split} Split (Test Mode){suffix}"
-        feature_importance_filename = f"xgboost_{args.split}_test{suffix}_feature_importance.png"
-        predictions_filename = f"xgboost_{args.split}_test{suffix}_predictions.png"
-        
         print(f"\nTest Set Performance ({args.split}):")
         print(f"Mean Squared Error: {metrics['mse']:.6f}")
         print(f"Mean Absolute Error: {metrics['mae']:.6f}")
@@ -474,12 +385,12 @@ def main():
         print(f"R² Score: {metrics['r2']:.6f}")
         
         # Plot feature importance
-        xrd_boost.plot_feature_importance(output_name=feature_importance_filename)
+        xrd_boost.plot_feature_importance(output_name="feature_importance.png")
         
         # Plot predictions
         xrd_boost.plot_predictions(y_test, predictions, test_temps, 
-                                  output_name=predictions_filename,
-                                  title=plot_title)
+                                  output_name="predictions.png",
+                                  title=f"XGBoost Predictions on Test Data")
         
         # Evaluate by range
         range_results = xrd_boost.evaluate_by_range(X_test, y_test)
@@ -516,7 +427,7 @@ def main():
             print(f"  {temp[0]} K, Heat Source {temp[1]} K: {count} samples")
         
         # Data resampling if requested
-        if args.resample:
+        if args.balance:
             print("Performing resampling...")
             X_train, y_train = resample_dataset_from_binned_solid_fractions(
                 data=X_train,
@@ -565,13 +476,7 @@ def main():
         # Evaluate performance
         predictions, metrics = xrd_boost.evaluate(X_val, y_val)
         
-        # Create descriptive filenames based on the split and mode
-        suffix = "_tuned" if args.tune else ""
-        suffix += "_svr_resampled" if args.resample else ""
-        plot_title = f"XGBoost: {args.split} Split (Validation Mode){suffix}"
-        feature_importance_filename = f"xgboost_{args.split}_val{suffix}_feature_importance.png"
-        predictions_filename = f"xgboost_{args.split}_val{suffix}_predictions.png"
-        
+
         print("\nValidation Performance:")
         print(f"Mean Squared Error: {metrics['mse']:.6f}")
         print(f"Mean Absolute Error: {metrics['mae']:.6f}")
@@ -579,12 +484,12 @@ def main():
         print(f"R² Score: {metrics['r2']:.6f}")
         
         # Plot feature importance
-        xrd_boost.plot_feature_importance(output_name=feature_importance_filename)
+        xrd_boost.plot_feature_importance(output_name="feature_importance.png")
         
         # Plot predictions
         xrd_boost.plot_predictions(y_val, predictions, val_temps,
-                                  output_name=predictions_filename,
-                                  title=plot_title)
+                                  output_name="predictions.png",
+                                  title=f"XGBoost Predictions on Validation Data")
         
         # Evaluate by range
         range_results = xrd_boost.evaluate_by_range(X_val, y_val)
