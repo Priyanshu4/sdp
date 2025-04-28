@@ -77,11 +77,12 @@ def build_model(hp):
 def main():
 
     # Parse command line argument to determine the TRAIN_TEST_SPLIT
-    parser = ArgumentParser(description="Train an SVR model with hyperparameters tuned on validation data.")
+    parser = ArgumentParser(description="Train a CNN with hyperparameters automatically tuned on validation data.")
     parser.add_argument(
-        "--train_test_split",
+        "--split",
         type=str,
-        default="original",
+        default="train_2000_val_2500_test_3500",
+        help="Specify the train-test split to use (keys from train_test_split.py.TRAIN_TEST_SPLIT).",
     )
     parser.add_argument(
         "--balance",
@@ -94,12 +95,10 @@ def main():
         default=50,
     )
     args = parser.parse_args()
-    if args.train_test_split not in TRAIN_TEST_SPLITS:
-        raise ValueError(f"Invalid train_test_split value. Choose from {TRAIN_TEST_SPLITS.keys()}.")
-    print(f"Using train_test_split: {args.train_test_split}")
-    split = TRAIN_TEST_SPLITS[args.train_test_split]
+    print(f"Using train test split: {args.split}")
+    split = TRAIN_TEST_SPLITS[args.split]
 
-    name = f"automl_cnn_{args.train_test_split}_split_{args.epochs}_epochs"
+    name = f"automl_cnn_{args.split}_split_{args.epochs}_epochs"
     if args.balance:
         name += "_balanced"
     set_plots_subdirectory(name, add_timestamp=True)
