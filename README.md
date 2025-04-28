@@ -18,16 +18,23 @@ For a project overview, see https://seniordesignday.engr.uconn.edu/seniorproject
 
 All scripts can be run with the `-h` argument to see their description and arguments.
 
+If any scripts produce plots, they will automatically create a `plots` directory within the repository and a subdirectory in the `plots` folder that is labeled with the model/script name and a timestamp. All of the plots for the script will be stored within this subdirectory. This is handled by the `set_plots_subdirectory` and `save_plot` functions in `plotting.py`.
+
 ### Model Training Scripts
+All model training scripts share the following arguments. The arguments listed for each model script are in addition to these:
+  - `--train_test_split`: Selects which train test split to use. List the options with `-h` or see the `TRAIN_TEST_SPLIT` dictionary in `train_test_split.py`
+     - The split used to generate our final results is `train_2000_val_2500_test_3500`, which is the default for all our model scripts
+  - `--balance`: Use resampling to balance the training data distribution with undersampling.
+    - Balancing was only tested with the `train_2000_val_2500_test_3500` split, and the parameters used in the balancing function may not be appropriate for other splits.
 
 #### Support Vector Regression (SVR)
 - `svr.py`
   - Trains an SVR with hyperparameters specified with command line
   - Arguments:
-     - `C`
-     - `gamma`
-     - `epsilon`
-     - `test`
+     - `--C`
+     - `--gamma`
+     - `--epsilon`
+     - `--test`
           - If provided, train on training set + validation set and report results on test set.
           - If not provided, train on training set and and report results on validation set.
           - Currently, this script does not support selecting the `train_test_split`. It only uses our original split.
@@ -46,8 +53,7 @@ TODO
 - `rf_gridsearch.py`
   - Trains a Random Forest model with grid search for hyperparameter optimization
   - Arguments:
-     - `--train_test_split`: Selects which train/test split to use
-     - `--balance`: Use resampling to balance the training data distribution with undersampling 
+
 
 #### Gradient Boosting Machines
 - `gbm.py`
