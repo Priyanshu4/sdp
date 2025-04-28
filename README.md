@@ -40,8 +40,9 @@ All model training scripts share the following arguments. The arguments listed f
           - Currently, this script does not support selecting the `train_test_split`. It only uses our original split.
 - `svr_gridsearch.py`
   - ***This is what we used to generate our final SVR results***
-  - Trains SVRs on the training set without various hyperparameter combinations
-  - The SVR which performs best is on the validation set is then used for evaluation on the test set
+  - Trains SVRs on the training set with gridsearch for hyperparameter optimization
+  - Gridsearch tunes the `C`, `gamma` and `epsilon`
+  - The SVR which performs best on the validation set is then used for evaluation on the test set
 - `svr_gridsearch.py`
      - Uses scikit learn GridSearchCV (grid search with cross validation) to train on combined training + validation set
      - The hyperparameters which perform best are used for evaluation on the test set
@@ -53,7 +54,8 @@ TODO
 - `rf_gridsearch.py`
   - ***This is what we used to generate our final Random Forest results***
   - Trains a Random Forest model with grid search for hyperparameter optimization
-  - Tunes the `n_estimators` (Number of trees in the forest), `max_depth` (Maximum depth of trees) and `min_samples_split` (Minimum samples required to split a node) parameters
+  - Gridsearch tunes the `n_estimators` (Number of trees in the forest), `max_depth` (Maximum depth of trees) and `min_samples_split` (Minimum samples required to split a node) 
+  - The random forest which performs best on the validation set is then used for evaluation on the test set
 
 #### Gradient Boosting Machines
 - `gbm.py`
