@@ -2,14 +2,22 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
 import matplotlib.pyplot as plt
+from argparse import ArgumentParser
+
 from train_test_split import (
     load_train_data, 
     load_validation_data, 
     get_x_y_as_np_array,
     load_validation_data_by_temp,
-    data_by_temp_to_x_y_np_array
+    data_by_temp_to_x_y_np_array,
+    TRAIN_TEST_SPLITS,
 )
-from plotting import plot_model_predictions_by_temp, save_plot
+from plotting import (
+    plot_model_predictions_by_temp, 
+    save_plot,
+    set_plots_subdirectory,
+)
+from imbalance import resample_dataset_from_binned_solid_fractions
 
 class XRDNet:
     def __init__(self):
@@ -132,7 +140,7 @@ class XRDNet:
         plt.grid(True)
         
         plt.tight_layout()
-        plt.savefig('training_history.png')
+        save_plot('training_history.png')
         plt.close()
 
     def evaluate_predictions(self, X_test, y_test):
@@ -159,7 +167,7 @@ class XRDNet:
         plot_model_predictions_by_temp(eval_y, eval_predictions.flatten(), eval_temps)
         plt.title('CNN Predictions vs Actual Values (Best Model)')
         plt.grid(True)
-        save_plot('cnn_predictions_by_temp.png')
+        save_plot('predictions_by_temp.png')
         
         # Also create basic plot for compatibility
         plt.figure(figsize=(8, 6))
@@ -169,7 +177,7 @@ class XRDNet:
         plt.ylabel('Predicted Solid Fraction')
         plt.title('Predictions vs Actual Values')
         plt.grid(True)
-        plt.savefig('CNN: predictions_vs_actual.png')
+        save_plot('predictions_vs_actual.png')
         plt.close()
         
         return {
@@ -251,17 +259,58 @@ def summarize_model(model):
     print("Simple model diagram saved to 'model_architecture_diagram.txt'")
 
 def main():
-    # Load data using your teammate's functions
+
+    parser = ArgumentParser(description="Train an SVR model with hyperparameters tuned on validation data.")
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="train_2000_val_2500_test_3500",
+        choices=TRAIN_TEST_SPLITS.keys(),
+        help="Specify the train-test split to use (keys from train_test_split.py.TRAIN_TEST_SPLIT).",
+    )
+    parser.add_argument(
+        "--balance",
+        action="store_true",
+        help="Whether to balance the train dataset with resampling",
+    )
+    args = parser.parse_args()
+    print(f"Using train test split: {args.split}")
+    split = TRAIN_TEST_SPLITS[args.split]
+
+    name = f"cnn_{args.split}_split"
+    if args.balance:
+        name += "_balanced"
+    set_plots_subdirectory(name, add_timestamp=True)
+
     print("Loading training data...")
-    train_data = load_train_data()
+    train_data = load_train_data(split=split, suppress_load_errors=True)
     
     print("Loading validation data...")
-    validation_data = load_validation_data()
+    validation_data = load_validation_data(split=split, suppress_load_errors=True)
     
     # Convert to numpy arrays
     print("Converting to numpy arrays...")
     X_train, y_train = get_x_y_as_np_array(train_data)
     X_val, y_val = get_x_y_as_np_array(validation_data)
+
+    n_samples, n_features = X_train.shape
+    print(f"Number of features: {n_features}")
+    print(f"Number of training samples: {n_samples}")
+    print(f"Number of validation samples: {X_val.shape[0]}")
+
+    # Optionally balance the training dataset
+    if args.balance:
+        print("Resampling the training dataset to balance it...")
+        print("Using resample_dataset_from_binned_solid_fractions")
+        X_train, y_train = resample_dataset_from_binned_solid_fractions(
+            data=X_train,
+            solid_fractions=y_train,
+            n_bins=20,
+            bin_undersampling_threshold=0.8,
+            oversample=False,
+            random_seed=42
+        )
+        print(f"Number of training samples after balancing: {X_train.shape[0]}")
     
     # Reshape input data for CNN
     X_train = X_train.reshape(-1, 125, 1)
