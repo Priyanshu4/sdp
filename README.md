@@ -21,7 +21,7 @@ If any scripts produce plots, they will automatically create a `plots` directory
 
 ### Model Training Scripts
 All model training scripts share the following arguments. The arguments listed for each model script are in addition to these:
-  - `--train_test_split`: Selects which train test split to use. List the options with `-h` or see the `TRAIN_TEST_SPLIT` dictionary in `train_test_split.py`
+  - `--split`: Selects which train test split to use. List the options with `-h` or see the `TRAIN_TEST_SPLIT` dictionary in `train_test_split.py`
      - The split used to generate our final results is `train_2000_val_2500_test_3500`, which is the default for all our model scripts
   - `--balance`: Use resampling to balance the training data distribution with undersampling.
     - Balancing was only tested with the `train_2000_val_2500_test_3500` split, and the parameters used in the balancing function may not be appropriate for other splits.
